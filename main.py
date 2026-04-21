@@ -18,10 +18,10 @@ def hash_senha(s): return __import__("hashlib").sha256(s.encode()).hexdigest()
 def init_db():
     conn = get_db()
     conn.executescript("""
-        ALTER TABLE contas_pagar ADD COLUMN IF NOT EXISTS comprovante TEXT;
-        ALTER TABLE contas_pagar ADD COLUMN IF NOT EXISTS comprovante_nome TEXT;
-        ALTER TABLE contas_receber ADD COLUMN IF NOT EXISTS comprovante TEXT;
-        ALTER TABLE contas_receber ADD COLUMN IF NOT EXISTS comprovante_nome TEXT;
+        
+        
+        
+        
 
         CREATE TABLE IF NOT EXISTS usuarios (id INTEGER PRIMARY KEY AUTOINCREMENT, nome TEXT, email TEXT UNIQUE, senha_hash TEXT, perfil TEXT DEFAULT 'visualizador', ativo INTEGER DEFAULT 1, criado_em TEXT DEFAULT (datetime('now')));
         CREATE TABLE IF NOT EXISTS sessoes (token TEXT PRIMARY KEY, usuario_id INTEGER, expira_em TEXT);
