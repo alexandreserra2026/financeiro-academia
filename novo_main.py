@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Depends, Request
+novo_main = '''from fastapi import FastAPI, HTTPException, Depends, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse, Response, HTMLResponse
 from pydantic import BaseModel
@@ -202,10 +202,10 @@ def gerar_relatorio(tipo_rel:str,formato:str="csv",periodo:str="mensal",data_ini
     inad=buscar_inadimplencia(vr) if tipo_rel=="inadimplencia" else []
     if formato=="csv":
         mp={"pagar":lambda:gerar_csv_pagar(pagar),"receber":lambda:gerar_csv_receber(receber),"fluxo":lambda:gerar_csv_fluxo(pagar,receber),"dre":lambda:gerar_csv_dre(pagar,receber),"inadimplencia":lambda:gerar_csv_inadimplencia(inad),"resumo":lambda:gerar_csv_resumo(pagar,receber,ini,fim)}
-        return Response(content=mp[tipo_rel](),media_type="text/csv; charset=utf-8-sig",headers={"Content-Disposition":f'attachment; filename="{fname}.csv"'})
+        return Response(content=mp[tipo_rel](),media_type="text/csv; charset=utf-8-sig",headers={"Content-Disposition":f\'attachment; filename="{fname}.csv"\'})
     elif formato=="xlsx":
         mp={"pagar":lambda:build_xlsx_pagar(pagar),"receber":lambda:build_xlsx_receber(receber),"fluxo":lambda:build_xlsx_fluxo(pagar,receber),"dre":lambda:build_xlsx_dre(pagar,receber),"inadimplencia":lambda:build_xlsx_inadimplencia(inad),"resumo":lambda:build_xlsx_resumo(pagar,receber,ini,fim)}
-        return Response(content=mp[tipo_rel](),media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",headers={"Content-Disposition":f'attachment; filename="{fname}.xlsx"'})
+        return Response(content=mp[tipo_rel](),media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",headers={"Content-Disposition":f\'attachment; filename="{fname}.xlsx"\'})
     elif formato=="pdf":
         titulos={"pagar":"Contas a Pagar","receber":"Contas a Receber","fluxo":"Fluxo de Caixa","dre":"DRE","resumo":"Resumo Gerencial","inadimplencia":"Inadimplencia"}
         titulo=titulos.get(tipo_rel,tipo_rel)
@@ -234,3 +234,7 @@ app.mount("/static",StaticFiles(directory="static"),name="static")
 
 @app.get("/{full_path:path}")
 def catch_all(full_path:str): return FileResponse("static/index.html")
+'''
+
+open("main.py","w",encoding="utf-8").write(novo_main)
+print("main.py atualizado!")

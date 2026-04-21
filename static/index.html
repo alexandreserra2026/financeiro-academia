@@ -1,3 +1,19 @@
+
+<div class="login-wrap" id="login-wrap" style="display:flex;min-height:100vh;align-items:center;justify-content:center;background:#f8f8f6">
+  <div style="background:#fff;border:1px solid #e5e5e0;border-radius:12px;padding:2rem;width:100%;max-width:380px">
+    <div style="font-size:18px;font-weight:700;text-align:center;margin-bottom:1.5rem">&#128171; <span style="color:#0F6E56">Academia</span> Finance</div>
+    <div id="login-err" style="background:#FCEBEB;color:#A32D2D;border-radius:8px;padding:8px 12px;font-size:13px;margin-bottom:12px;display:none"></div>
+    <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:12px">
+      <label style="font-size:11px;font-weight:600;color:#666;text-transform:uppercase">E-mail</label>
+      <input id="l-email" type="email" placeholder="seu@email.com" style="border:1px solid #e5e5e0;border-radius:8px;padding:8px 10px;font-size:13px" onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:16px">
+      <label style="font-size:11px;font-weight:600;color:#666;text-transform:uppercase">Senha</label>
+      <input id="l-senha" type="password" placeholder="••••••••" style="border:1px solid #e5e5e0;border-radius:8px;padding:8px 10px;font-size:13px" onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <button onclick="doLogin()" id="btn-login" style="width:100%;padding:9px;border-radius:8px;border:none;background:#1a1a1a;color:#fff;font-size:14px;font-weight:500;cursor:pointer">Entrar</button>
+  </div>
+</div>
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -398,6 +414,79 @@ function qs(t) { document.getElementById('cin').value = t; sendChat(); }
 document.getElementById('p-venc').value = today;
 document.getElementById('r-venc').value = today;
 loadDash();
+
+let ME = {};
+
+async function doLogin(){
+  const email=document.getElementById('l-email').value.trim();
+  const senha=document.getElementById('l-senha').value;
+  const btn=document.getElementById('btn-login');
+  btn.disabled=true;btn.textContent='Entrando...';
+  const res=await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,senha})});
+  btn.disabled=false;btn.textContent='Entrar';
+  if(!res.ok){const e=await res.json();const el=document.getElementById('login-err');el.textContent=e.detail||'Erro';el.style.display='block';return;}
+  const data=await res.json();ME=data;showApp();
+}
+
+async function doLogout(){
+  await fetch('/api/logout',{method:'POST'});ME={};
+  document.getElementById('login-wrap').style.display='flex';
+  document.getElementById('app').style.display='none';
+}
+
+function showApp(){
+  document.getElementById('login-wrap').style.display='none';
+  document.getElementById('app').style.display='flex';
+  document.getElementById('top-nome').textContent=ME.nome||'';
+  const pb=document.getElementById('top-perfil');
+  pb.textContent={admin:'Administrador',gerente:'Gerente',visualizador:'Visualizador'}[ME.perfil]||ME.perfil;
+  pb.className='perfil-badge '+(ME.perfil||'');
+  document.getElementById('nav-usuarios').style.display=ME.perfil==='admin'?'flex':'none';
+  document.getElementById('btn-nova-pagar').style.display=ME.perfil!=='visualizador'?'':'none';
+  document.getElementById('btn-nova-receber').style.display=ME.perfil!=='visualizador'?'':'none';
+  goTo('dash',document.querySelector('.nav-item'));
+}
+
+function toggleDatas(){
+  const p=document.getElementById('rel-periodo').value;
+  const el=document.getElementById('datas-rel');
+  el.style.display=p==='personalizado'?'grid':'none';
+}
+
+function gerarRel(){
+  const tipo=document.getElementById('rel-tipo').value;
+  const periodo=document.getElementById('rel-periodo').value;
+  const formato=document.getElementById('rel-formato').value;
+  const ini=document.getElementById('rel-ini').value;
+  const fim=document.getElementById('rel-fim').value;
+  let url=`/api/relatorio/${tipo}?formato=${formato}&periodo=${periodo}`;
+  if(periodo==='personalizado'&&ini&&fim)url+=`&data_ini=${ini}&data_fim=${fim}`;
+  if(formato==='pdf')window.open(url,'_blank');
+  else{const a=document.createElement('a');a.href=url;a.click();}
+}
+
+function previewRel(){
+  const tipo=document.getElementById('rel-tipo').value;
+  const periodo=document.getElementById('rel-periodo').value;
+  const ini=document.getElementById('rel-ini').value;
+  const fim=document.getElementById('rel-fim').value;
+  let url=`/api/relatorio/${tipo}?formato=pdf&periodo=${periodo}`;
+  if(periodo==='personalizado'&&ini&&fim)url+=`&data_ini=${ini}&data_fim=${fim}`;
+  window.open(url,'_blank');
+}
+
+function atalho(tipo,periodo,formato){
+  document.getElementById('rel-tipo').value=tipo;
+  document.getElementById('rel-periodo').value=periodo;
+  document.getElementById('rel-formato').value=formato;
+  gerarRel();
+}
+
+fetch('/api/me').then(r=>{
+  if(r.ok)return r.json().then(d=>{ME=d;showApp();});
+  else{document.getElementById('login-wrap').style.display='flex';}
+}).catch(()=>{document.getElementById('login-wrap').style.display='flex';});
+
 </script>
 </body>
 </html>
