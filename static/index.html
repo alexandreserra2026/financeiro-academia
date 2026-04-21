@@ -580,7 +580,7 @@ async function loadUsuarios(){
       <td>${u.nome}</td>
       <td style="color:var(--muted)">${u.email}</td>
       <td><span class="perfil-badge ${u.perfil}">${labels[u.perfil]||u.perfil}</span></td>
-      <td><span style="color:${u.ativo?'var(--green)':'var(--red)';}">${u.ativo?'Ativo':'Inativo'}</span></td>
+      <td><span style="color:${u.ativo?'var(--green)':'var(--red)'}">${u.ativo?'Ativo':'Inativo'}</span></td>
       <td style="display:flex;gap:6px;flex-wrap:wrap">
         <button class="btn sm" onclick="editarUsuario(${u.id},'${u.nome}','${u.email}','${u.perfil}')">Editar</button>
         ${u.id!==ME.id?`<button class="btn sm" onclick="toggleAtivo(${u.id},${u.ativo})">${u.ativo?'Desativar':'Ativar'}</button>`:''}
