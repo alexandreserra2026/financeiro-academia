@@ -507,7 +507,7 @@ async function loadLista(tipo){
       <div class="v ${tipo==='pagar'?'neg':'pos'}">${fmt(c.valor)}</div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
         ${podeEditar&&c.status!==pKey?`<button class="btn sm primary" onclick="marcar(${c.id},'${tipo}','${novoStatus}')">${tipo==='pagar'?'Baixar':'Receber'}</button>`:''}
-        <button onclick="toggleComprovante(${c.id},'${tipo}',${c.comprovante?1:0})" style="padding:4px 10px;font-size:11px;border-radius:6px;border:1px solid #ccc;background:transparent;cursor:pointer">${c.comprovante?'📎 Ver':'📎 Anexar'}</button>
+        <button onclick="toggleComprovante(${c.id},'${tipo}',${c.comprovante?1:0})" style="padding:4px 10px;font-size:11px;border-radius:6px;border:1px solid #ccc;background:transparent;cursor:pointer">${c.comprovante?'📎':'📎'} ${c.comprovante?'Ver':'Anexar'}</button>
         ${podeExcluir?`<button class="btn sm danger" onclick="deletar(${c.id},'${tipo}')">Excluir</button>`:''}
       </div>
     </div></div>`).join('');
