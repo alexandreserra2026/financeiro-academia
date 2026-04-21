@@ -295,6 +295,19 @@ def deletar_comprovante(tipo: str, id: int, u=Depends(pode_editar)):
     conn.close()
     return {"ok": True}
 
+
+@app.get("/api/setup")
+def setup():
+    conn = get_db()
+    if conn.execute("SELECT COUNT(*) FROM usuarios WHERE email='admin@academia.com'").fetchone()[0] == 0:
+        conn.execute("INSERT INTO usuarios (nome,email,senha_hash,perfil) VALUES (?,?,?,?)",
+            ("Administrador","admin@academia.com",hash_senha("admin123"),"admin"))
+        conn.commit()
+        conn.close()
+        return {"ok": True, "msg": "Admin criado!"}
+    conn.close()
+    return {"ok": True, "msg": "Admin ja existe!"}
+
 app.mount("/static",StaticFiles(directory="static"),name="static")
 
 @app.get("/{full_path:path}")
