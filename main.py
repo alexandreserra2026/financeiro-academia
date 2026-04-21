@@ -308,6 +308,16 @@ def setup():
     conn.close()
     return {"ok": True, "msg": "Admin ja existe!"}
 
+
+@app.get("/api/reset-admin")
+def reset_admin():
+    conn = get_db()
+    conn.execute("UPDATE usuarios SET senha_hash=? WHERE email='admin@academia.com'",
+        (hash_senha("admin123"),))
+    conn.commit()
+    conn.close()
+    return {"ok": True, "msg": "Senha resetada para admin123"}
+
 app.mount("/static",StaticFiles(directory="static"),name="static")
 
 @app.get("/{full_path:path}")
