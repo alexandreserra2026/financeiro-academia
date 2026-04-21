@@ -25,8 +25,8 @@ def init_db():
 
         CREATE TABLE IF NOT EXISTS usuarios (id INTEGER PRIMARY KEY AUTOINCREMENT, nome TEXT, email TEXT UNIQUE, senha_hash TEXT, perfil TEXT DEFAULT 'visualizador', ativo INTEGER DEFAULT 1, criado_em TEXT DEFAULT (datetime('now')));
         CREATE TABLE IF NOT EXISTS sessoes (token TEXT PRIMARY KEY, usuario_id INTEGER, expira_em TEXT);
-        CREATE TABLE IF NOT EXISTS contas_pagar (id INTEGER PRIMARY KEY AUTOINCREMENT, desc TEXT, categoria TEXT, valor REAL, vencimento TEXT, status TEXT DEFAULT 'aberto', restrita INTEGER DEFAULT 0, criado_em TEXT DEFAULT (datetime('now')));
-        CREATE TABLE IF NOT EXISTS contas_receber (id INTEGER PRIMARY KEY AUTOINCREMENT, desc TEXT, categoria TEXT, valor REAL, vencimento TEXT, status TEXT DEFAULT 'aberto', restrita INTEGER DEFAULT 0, criado_em TEXT DEFAULT (datetime('now')));
+        CREATE TABLE IF NOT EXISTS contas_pagar (id INTEGER PRIMARY KEY AUTOINCREMENT, desc TEXT, categoria TEXT, valor REAL, vencimento TEXT, status TEXT DEFAULT 'aberto', restrita INTEGER DEFAULT 0, comprovante TEXT, comprovante_nome TEXT, criado_em TEXT DEFAULT (datetime('now')));
+        CREATE TABLE IF NOT EXISTS contas_receber (id INTEGER PRIMARY KEY AUTOINCREMENT, desc TEXT, categoria TEXT, valor REAL, vencimento TEXT, status TEXT DEFAULT 'aberto', restrita INTEGER DEFAULT 0, comprovante TEXT, comprovante_nome TEXT, criado_em TEXT DEFAULT (datetime('now')));
     """)
     if conn.execute("SELECT COUNT(*) FROM usuarios").fetchone()[0] == 0:
         conn.execute("INSERT INTO usuarios (nome,email,senha_hash,perfil) VALUES (?,?,?,?)", ("Administrador","admin@academia.com",hash_senha("admin123"),"admin"))
