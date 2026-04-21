@@ -1,4 +1,6 @@
-import sqlite3,csv,io,datetime
+import os
+
+relatorios = '''import sqlite3,csv,io,datetime
 
 def get_db():
     conn=sqlite3.connect("financeiro.db")
@@ -189,3 +191,7 @@ def gerar_pdf_html(titulo,periodo_str,tabelas):
         rows_html+="</tbody></table>"
     now=datetime.datetime.now().strftime("%d/%m/%Y %H:%M")
     return "<!DOCTYPE html><html><head><meta charset=UTF-8><title>"+titulo+"</title><style>body{font-family:Arial;font-size:11px;margin:20px}h1{color:#0F6E56;border-bottom:2px solid #0F6E56}table{width:100%;border-collapse:collapse;margin-bottom:16px}th{background:#1a1a1a;color:#fff;padding:6px 8px;text-align:left}td{padding:6px 8px;border-bottom:1px solid #e5e5e0}tr:nth-child(even) td{background:#fafaf8}tr.total td{background:#0F6E56;color:#fff;font-weight:bold}@media print{body{margin:10mm}}</style></head><body><h1>"+titulo+"</h1><p>Periodo: "+periodo_str+" | Gerado: "+now+"</p>"+rows_html+"</body></html>"
+'''
+
+open("relatorios.py","w",encoding="utf-8").write(relatorios)
+print("relatorios.py criado!")
