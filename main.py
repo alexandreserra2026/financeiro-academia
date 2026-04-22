@@ -157,9 +157,20 @@ def login(data: LoginIn):
         user = conn.execute("SELECT * FROM usuarios WHERE email=? AND ativo=1", (data.email,)).fetchone()
     
     # Verifica a senha com bcrypt
+    print(f"[LOGIN DEBUG] User found: {user is not None}")
+    if user:
+        print(f"[LOGIN DEBUG] Email: {user.get('email')}")
+        print(f"[LOGIN DEBUG] Hash no banco: {user.get('senha_hash')[:20]}...")
+        print(f"[LOGIN DEBUG] Senha digitada: {data.senha}")
+        senha_ok = bcrypt.checkpw(data.senha.encode('utf-8'), user["senha_hash"].encode('utf-8'))
+        print(f"[LOGIN DEBUG] Senha válida: {senha_ok}")
+    
     if not user or not bcrypt.checkpw(data.senha.encode('utf-8'), user["senha_hash"].encode('utf-8')):
+        print(f"[LOGIN DEBUG] Login FALHOU")
         conn.close()
         raise HTTPException(401, "E-mail ou senha incorretos")
+    
+    print(f"[LOGIN DEBUG] Login OK!")
     token = secrets.token_hex(32)
     expira = (datetime.now()+timedelta(hours=12)).isoformat()
     conn.execute("INSERT INTO sessoes (token,usuario_id,expira_em) VALUES (?,?,?)",(token,user["id"],expira))
