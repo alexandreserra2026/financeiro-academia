@@ -861,6 +861,51 @@ function loadCatSelect(selectId, tipo) {
 }
 
 function loadConfig() {
+  var tipos = ['despesa','receita','centro','pagamento'];
+  tipos.forEach(function(tipo) {
+    fetch('/api/config/'+tipo, {headers:{'Content-Type':'application/json'}})
+    .then(function(r){ return r.json(); })
+    .then(function(data) {
+      var el = document.getElementById('list-cat-'+tipo);
+      if(!el) return;
+      if(!data.length){ el.innerHTML = '<div style="font-size:12px;color:#999;padding:8px">Nenhum cadastrado.</div>'; return; }
+      var html = '';
+      data.forEach(function(item) {
+        var nomeEsc = item.nome.replace(/'/g, "\'");
+        var descEsc = (item.descricao||'').replace(/'/g, "\'");
+        html += '<div style="display:flex;align-items:center;gap:6px;padding:7px 0;border-bottom:1px solid #eee">';
+        html += '<div style="flex:1"><div style="font-size:13px;font-weight:500">' + item.nome + '</div>';
+        if(item.descricao) html += '<div style="font-size:11px;color:#888">' + item.descricao + '</div>';
+        html += '</div>';
+        html += '<span style="font-size:10px;padding:2px 7px;border-radius:999px;background:' + (item.ativo ? '#E1F5EE' : '#f3f4f6') + ';color:' + (item.ativo ? '#0F6E56' : '#999') + '">' + (item.ativo ? 'Ativo' : 'Inativo') + '</span>';
+        html += '<button class="btn sm" onclick="editConfigItem(' + JSON.stringify(tipo) + ',' + item.id + ',' + JSON.stringify(item.nome) + ',' + JSON.stringify(item.descricao||'') + ',' + item.ativo + ',' + item.ordem + ')">Editar</button>';
+        html += '<button class="btn sm danger" onclick="delConfigItem(' + JSON.stringify(tipo) + ',' + item.id + ')">&#10005;</button>';
+        html += '</div>';
+      });
+      el.innerHTML = html;
+    }).catch(function(e){ console.log('config error', e); });
+  });
+}
+
+function loadCatSelect(selectId, tipo) {
+  fetch('/api/config/'+tipo, {headers:{'Content-Type':'application/json'}})
+  .then(function(r){ return r.json(); })
+  .then(function(data) {
+    var sel = document.getElementById(selectId);
+    if(!sel) return;
+    var current = sel.value;
+    sel.innerHTML = '';
+    data.filter(function(d){ return d.ativo; }).forEach(function(item) {
+      var opt = document.createElement('option');
+      opt.value = item.nome;
+      opt.textContent = item.nome;
+      sel.appendChild(opt);
+    });
+    if(current) sel.value = current;
+  }).catch(function(){});
+}
+
+function loadConfig() {
   ['despesa','receita','centro','pagamento'].forEach(function(tipo) {
     fetch('/api/config/'+tipo, {headers:{'Content-Type':'application/json'}})
     .then(function(r){ return r.json(); })
