@@ -362,6 +362,32 @@ def migrate2():
     conn.close()
     return {"ok": True, "migracoes": feitos if feitos else "ja atualizadas"}
 
+
+
+
+@app.get("/api/setup")
+def setup():
+    conn = get_db()
+    conn.execute("DELETE FROM usuarios")
+    conn.execute("INSERT INTO usuarios (nome,email,senha_hash,perfil) VALUES (?,?,?,?)",
+        ("Alexandre Serra","alexandreserrarj@gmail.com",hash_senha("R@fa2503"),"admin"))
+    conn.commit()
+    conn.close()
+    return {"ok": True, "msg": "Admin recriado! Login: alexandreserrarj@gmail.com Senha: R@fa2503"}
+
+@app.get("/api/emergency-reset-xk9")
+def emergency_reset():
+    conn = get_db()
+    if conn.execute("SELECT COUNT(*) FROM usuarios WHERE email='alexandreserrarj@gmail.com'").fetchone()[0] == 0:
+        conn.execute("INSERT INTO usuarios (nome,email,senha_hash,perfil) VALUES (?,?,?,?)",
+            ("Alexandre Serra","alexandreserrarj@gmail.com",hash_senha("R@fa2503"),"admin"))
+    else:
+        conn.execute("UPDATE usuarios SET senha_hash=?,perfil='admin',ativo=1 WHERE email='alexandreserrarj@gmail.com'",
+            (hash_senha("R@fa2503"),))
+    conn.commit()
+    conn.close()
+    return {"ok": True, "msg": "Admin resetado!"}
+
 app.mount("/static",StaticFiles(directory="static"),name="static")
 
 @app.get("/{full_path:path}")

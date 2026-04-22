@@ -167,7 +167,32 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .detail-label{color:var(--muted);font-weight:500}
 .detail-value{font-weight:500;text-align:right;max-width:60%}
 
-</style>
+
+    .menu-section {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .menu-section svg {
+      opacity: 0.6;
+    }
+    
+    .menu-item svg {
+      flex-shrink: 0;
+      opacity: 0.7;
+      transition: opacity 0.3s;
+    }
+    
+    .menu-item:hover svg {
+      opacity: 1;
+    }
+    
+    .menu-item.active svg {
+      opacity: 1;
+      stroke: #C0392B;
+    }
+  </style>
 </head>
 <body>
 
@@ -716,7 +741,7 @@ function loadDash() {
 
     // Gráfico de pizza
     if(dre && dre.despesas && dre.despesas.length) {
-      var cores = ['#C0392B','#E74C3C','#F59E0B','#EF4444','#3B82F6','#8B5CF6','#EC4899','#14B8A6'];
+      var cores = ['#3498DB','#27AE60','#F39C12','#9B59B6','#E74C3C','#1ABC9C','#E67E22','#2ECC71','#34495E','#16A085','#C0392B','#D35400'];
       destroyChart('pizza');
       var ctx3 = document.getElementById('chart-pizza').getContext('2d');
       charts['pizza'] = new Chart(ctx3, {
@@ -861,7 +886,7 @@ function loadFluxo() {
       var maxV = Math.max(r.entr, r.said, 1);
       html+='<div class="card" style="margin-bottom:10px">' +
         '<div style="font-size:12px;font-weight:600;color:var(--muted);margin-bottom:10px">Semana '+r.lbl+'</div>' +
-        '<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px"><div style="font-size:12px;min-width:70px;color:var(--green)">Entradas</div><div style="flex:1;height:8px;background:var(--border);border-radius:99px;overflow:hidden"><div style="height:100%;width:'+Math.round(r.entr/maxV*100)+'%;background:#E74C3C;border-radius:99px"></div></div><div style="font-size:13px;font-weight:600;min-width:90px;text-align:right;color:var(--green)">'+fmt(r.entr)+'</div></div>' +
+        '<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px"><div style="font-size:12px;min-width:70px;color:var(--green)">Entradas</div><div style="flex:1;height:8px;background:var(--border);border-radius:99px;overflow:hidden"><div style="height:100%;width:'+Math.round(r.entr/maxV*100)+'%;background:#27AE60;border-radius:99px"></div></div><div style="font-size:13px;font-weight:600;min-width:90px;text-align:right;color:var(--green)">'+fmt(r.entr)+'</div></div>' +
         '<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px"><div style="font-size:12px;min-width:70px;color:var(--red)">Saídas</div><div style="flex:1;height:8px;background:var(--border);border-radius:99px;overflow:hidden"><div style="height:100%;width:'+Math.round(r.said/maxV*100)+'%;background:#E24B4A;border-radius:99px"></div></div><div style="font-size:13px;font-weight:600;min-width:90px;text-align:right;color:var(--red)">'+fmt(r.said)+'</div></div>' +
         '<div style="text-align:right;font-size:12px;font-weight:600;color:'+(r.saldo>=0?'var(--green)':'var(--red)')+'">Saldo: '+fmt(r.saldo)+'</div></div>';
     });
