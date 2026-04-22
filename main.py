@@ -10,14 +10,12 @@ app = FastAPI(title="Financeiro Academia")
 DB = "financeiro.db"
 
 def get_db():
-    conn = sqlite3.connect(DB)
-    conn.row_factory = sqlite3.Row
+    conn, db_type = get_db_connection()
     return conn
 
 def hash_senha(senha):
     import bcrypt
     return bcrypt.hashpw(senha.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
-
 def init_db():
     conn = get_db()
     conn.executescript("""
