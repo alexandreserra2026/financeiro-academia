@@ -125,13 +125,27 @@
     }
     
     // Definir datas padrão (último mês)
-    window.addEventListener('load', () => {
-      const hoje = new Date();
-      const umMesAtras = new Date(hoje.getFullYear(), hoje.getMonth() - 1, hoje.getDate());
+    function initRelatoriosDates() {
+      const dataFim = document.getElementById('relDataFim');
+      const dataInicio = document.getElementById('relDataInicio');
       
-      document.getElementById('relDataFim').value = hoje.toISOString().split('T')[0];
-      document.getElementById('relDataInicio').value = umMesAtras.toISOString().split('T')[0];
-    });
+      if (dataFim && dataInicio) {
+        const hoje = new Date();
+        const umMesAtras = new Date(hoje.getFullYear(), hoje.getMonth() - 1, hoje.getDate());
+        
+        dataFim.value = hoje.toISOString().split('T')[0];
+        dataInicio.value = umMesAtras.toISOString().split('T')[0];
+      }
+    }
+    
+    // Chamar quando a seção de relatórios for aberta
+    const originalShowSection = showSection;
+    showSection = function(sectionId) {
+      originalShowSection(sectionId);
+      if (sectionId === 'relatorios') {
+        setTimeout(initRelatoriosDates, 100);
+      }
+    };
 
   </script>
 <style>
@@ -1445,13 +1459,27 @@ fetch('/api/me').then(function(r){
     }
     
     // Definir datas padrão (último mês)
-    window.addEventListener('load', () => {
-      const hoje = new Date();
-      const umMesAtras = new Date(hoje.getFullYear(), hoje.getMonth() - 1, hoje.getDate());
+    function initRelatoriosDates() {
+      const dataFim = document.getElementById('relDataFim');
+      const dataInicio = document.getElementById('relDataInicio');
       
-      document.getElementById('relDataFim').value = hoje.toISOString().split('T')[0];
-      document.getElementById('relDataInicio').value = umMesAtras.toISOString().split('T')[0];
-    });
+      if (dataFim && dataInicio) {
+        const hoje = new Date();
+        const umMesAtras = new Date(hoje.getFullYear(), hoje.getMonth() - 1, hoje.getDate());
+        
+        dataFim.value = hoje.toISOString().split('T')[0];
+        dataInicio.value = umMesAtras.toISOString().split('T')[0];
+      }
+    }
+    
+    // Chamar quando a seção de relatórios for aberta
+    const originalShowSection = showSection;
+    showSection = function(sectionId) {
+      originalShowSection(sectionId);
+      if (sectionId === 'relatorios') {
+        setTimeout(initRelatoriosDates, 100);
+      }
+    };
 
   </script>
 </body>
