@@ -428,6 +428,7 @@ def migrate2():
 
 
 @app.get("/api/setup")
+@app.get("/api/setup")
 def setup():
     import os
     conn = get_db()
@@ -437,12 +438,13 @@ def setup():
         # Detecta se é PostgreSQL ou SQLite
         if os.getenv('DATABASE_URL'):
             # PostgreSQL
-            with conn.cursor() as cur:
-                cur.execute("DELETE FROM usuarios WHERE email = %s", ("alexandreserrarj@gmail.com",))
-                cur.execute(
-                    "INSERT INTO usuarios (nome, email, senha_hash, perfil) VALUES (%s, %s, %s, %s)",
-                    ("Alexandre Serra", "alexandreserrarj@gmail.com", senha_hash, "admin")
-                )
+            cur = conn.cursor()
+            cur.execute("DELETE FROM usuarios WHERE email = %s", ("alexandreserrarj@gmail.com",))
+            cur.execute(
+                "INSERT INTO usuarios (nome, email, senha_hash, perfil) VALUES (%s, %s, %s, %s)",
+                ("Alexandre Serra", "alexandreserrarj@gmail.com", senha_hash, "admin")
+            )
+            cur.close()
             conn.commit()
         else:
             # SQLite
@@ -458,8 +460,6 @@ def setup():
     except Exception as e:
         conn.close()
         return {"ok": False, "erro": str(e)}
-
-
 @app.get("/api/emergency-reset-xk9")
 def emergency_reset():
     conn = get_db()
