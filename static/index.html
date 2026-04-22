@@ -202,7 +202,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
         <div class="page-header">
           <div>
             <div class="page-title">Dashboard</div>
-            <div class="page-sub">Visão financeira completa da academia</div>
+            <div class="page-sub" id="dash-date"></div>
           </div>
           <select class="period-select" id="dash-period" onchange="loadDash()">
             <option value="mes">Este mês</option>
@@ -211,31 +211,58 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
           </select>
         </div>
 
+        <!-- KPIs -->
         <div class="kpis" id="kpis"></div>
 
-        <div class="charts-grid">
+        <!-- Charts Row 1: Bar + Donut side by side, compact -->
+        <div style="display:grid;grid-template-columns:3fr 2fr;gap:14px;margin-bottom:14px">
           <div class="chart-card">
-            <div class="chart-title">Receitas × Despesas</div>
-            <div class="chart-sub">Comparativo por semana do mês</div>
-            <div class="chart-wrap"><canvas id="chart-barras" height="200"></canvas></div>
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px">
+              <div>
+                <div class="chart-title">Receitas × Despesas</div>
+                <div class="chart-sub">Por semana do mês</div>
+              </div>
+              <div style="display:flex;gap:12px;font-size:11px">
+                <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:2px;background:#27AE60;display:inline-block"></span>Entradas</span>
+                <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:2px;background:#E74C3C;display:inline-block"></span>Saídas</span>
+              </div>
+            </div>
+            <canvas id="chart-barras" style="max-height:180px"></canvas>
           </div>
           <div class="chart-card">
-            <div class="chart-title">Despesas por Categoria</div>
-            <div class="chart-sub">Distribuição do período</div>
-            <div class="chart-wrap"><canvas id="chart-pizza" height="200"></canvas></div>
+            <div style="margin-bottom:12px">
+              <div class="chart-title">Despesas</div>
+              <div class="chart-sub">Por categoria</div>
+            </div>
+            <canvas id="chart-pizza" style="max-height:180px"></canvas>
           </div>
         </div>
 
-        <div class="charts-grid" style="grid-template-columns:1fr">
+        <!-- Charts Row 2: Line chart compact -->
+        <div style="margin-bottom:14px">
           <div class="chart-card">
-            <div class="chart-title">Fluxo de Caixa</div>
-            <div class="chart-sub">Entradas e saídas ao longo do mês</div>
-            <div class="chart-wrap"><canvas id="chart-linha" height="120"></canvas></div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+              <div>
+                <div class="chart-title">Fluxo de Caixa</div>
+                <div class="chart-sub">Saldo acumulado no mês</div>
+              </div>
+              <div id="saldo-atual" style="font-size:16px;font-weight:700"></div>
+            </div>
+            <canvas id="chart-linha" style="max-height:120px"></canvas>
           </div>
         </div>
 
-        <div class="sec-title">Vencimentos próximos (7 dias)</div>
-        <div class="venc-list" id="venc-list"></div>
+        <!-- Vencimentos compactos -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+          <div class="chart-card">
+            <div class="chart-title" style="margin-bottom:10px">&#9888;&#65039; Vencimentos (7 dias)</div>
+            <div class="venc-list" id="venc-list"></div>
+          </div>
+          <div class="chart-card">
+            <div class="chart-title" style="margin-bottom:10px">&#128202; Resumo do período</div>
+            <div id="resumo-periodo"></div>
+          </div>
+        </div>
       </div>
 
       <!-- PAGAR -->
@@ -564,6 +591,9 @@ function loadDash() {
     var trendSaldo = saldo >= 0 ? 'up' : 'down';
     var trendMargem = margem >= 15 ? 'up' : margem >= 0 ? 'neutral' : 'down';
 
+    var now = new Date();
+    var dEl = document.getElementById('dash-date');
+    if(dEl) dEl.textContent = now.toLocaleDateString('pt-BR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
     document.getElementById('kpis').innerHTML =
       '<div class="kcard"><div class="lbl">A Receber</div><div class="val pos">'+fmt(data.a_receber)+'</div><div class="sub"><span class="trend up">&#8593; Previsto</span></div></div>' +
       '<div class="kcard red"><div class="lbl">A Pagar</div><div class="val neg">'+fmt(data.a_pagar)+'</div><div class="sub"><span class="trend '+(data.vencidos_pagar>0?'down':'neutral')+'">'+data.vencidos_pagar+' vencidos</span></div></div>' +
@@ -649,6 +679,8 @@ function loadDash() {
     }
 
     // Vencimentos
+    var saldoEl = document.getElementById('saldo-atual');
+    if(saldoEl) { saldoEl.textContent = fmt(saldo); saldoEl.style.color = saldo>=0?'var(--green)':'var(--red)'; }
     var list = document.getElementById('venc-list');
     if(!data.proximos_vencimentos || !data.proximos_vencimentos.length) {
       list.innerHTML = '<div class="empty">&#10003; Nenhum vencimento nos próximos 7 dias</div>'; return;
@@ -664,6 +696,19 @@ function loadDash() {
         '</div>';
     });
     list.innerHTML = html;
+
+    // Resumo periodo
+    var rp = document.getElementById('resumo-periodo');
+    if(rp && dre) {
+      var margem = dre.margem;
+      rp.innerHTML = 
+        '<div style="display:flex;flex-direction:column;gap:10px">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)"><span style="font-size:12px;color:var(--muted)">Receita bruta</span><span style="font-weight:600;color:var(--green)">'+fmt(dre.receita_bruta)+'</span></div>' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)"><span style="font-size:12px;color:var(--muted)">Total despesas</span><span style="font-weight:600;color:var(--red)">('+fmt(dre.total_despesas)+')</span></div>' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)"><span style="font-size:12px;color:var(--muted)">Resultado</span><span style="font-weight:700;color:'+(dre.resultado>=0?'var(--green)':'var(--red)')+'">'+fmt(dre.resultado)+'</span></div>' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0"><span style="font-size:12px;color:var(--muted)">Margem líquida</span><span style="font-weight:700;font-size:18px;color:'+(margem>=0?'var(--green)':'var(--red)')+'">'+margem+'%</span></div>' +
+        '</div>';
+    }
   });
 }
 
