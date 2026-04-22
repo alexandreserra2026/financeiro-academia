@@ -465,10 +465,8 @@ def setup():
         else:
             # SQLite
             execute_query(conn, "DELETE FROM usuarios WHERE email = ?", ("alexandreserrarj@gmail.com",))
-            conn.execute(
-                "INSERT INTO usuarios (nome, email, senha_hash, perfil) VALUES (?, ?, ?, ?)",
-                ("Alexandre Serra", "alexandreserrarj@gmail.com", senha_hash, "admin")
-            )
+            execute_query(conn, "INSERT INTO usuarios (nome, email, senha_hash, perfil) VALUES (?, ?, ?, ?)",
+                ("Alexandre Serra", "alexandreserrarj@gmail.com", senha_hash, "admin"))
             conn.commit()
         
         conn.close()
