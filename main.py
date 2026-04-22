@@ -148,21 +148,25 @@ def login(data: LoginIn):
     # Busca o usuário pelo email
     if os.getenv('DATABASE_URL'):
         cur = conn.cursor()
-        cur.execute("SELECT * FROM usuarios WHERE email=%s AND ativo=1", (data.email,))
-        user = cur.fetchone()
-        if user:
+        cur.execute("SELECT id, nome, email, senha_hash, perfil FROM usuarios WHERE email=%s AND ativo=1", (data.email,))
+        row = cur.fetchone()
+        if row:
             # Converte tupla do PostgreSQL para dict
-            user = {"id": user[0], "nome": user[1], "email": user[2], "senha_hash": user[3], "perfil": user[4]}
+            user = {"id": row[0], "nome": row[1], "email": row[2], "senha_hash": row[3], "perfil": row[4]}
+        else:
+            user = None
     else:
         user = conn.execute("SELECT * FROM usuarios WHERE email=? AND ativo=1", (data.email,)).fetchone()
     
     # Verifica a senha com bcrypt
     print(f"[LOGIN DEBUG] User found: {user is not None}")
     if user:
-        print(f"[LOGIN DEBUG] Email: {user.get('email')}")
-        print(f"[LOGIN DEBUG] Hash no banco: {user.get('senha_hash')[:20]}...")
+        email_debug = user["email"] if isinstance(user, dict) else user[2]
+        senha_hash = user["senha_hash"] if isinstance(user, dict) else user[3]
+        print(f"[LOGIN DEBUG] Email: {email_debug}")
+        print(f"[LOGIN DEBUG] Hash no banco: {senha_hash[:20]}...")
         print(f"[LOGIN DEBUG] Senha digitada: {data.senha}")
-        senha_ok = bcrypt.checkpw(data.senha.encode('utf-8'), user["senha_hash"].encode('utf-8'))
+        senha_ok = bcrypt.checkpw(data.senha.encode('utf-8'), senha_hash.encode('utf-8'))
         print(f"[LOGIN DEBUG] Senha válida: {senha_ok}")
     
     if not user or not bcrypt.checkpw(data.senha.encode('utf-8'), user["senha_hash"].encode('utf-8')):
@@ -173,7 +177,14 @@ def login(data: LoginIn):
     print(f"[LOGIN DEBUG] Login OK!")
     token = secrets.token_hex(32)
     expira = (datetime.now()+timedelta(hours=12)).isoformat()
-    conn.execute("INSERT INTO sessoes (token,usuario_id,expira_em) VALUES (?,?,?)",(token,user["id"],expira))
+    
+    # Insere sessão com sintaxe correta para PostgreSQL ou SQLite
+    if os.getenv('DATABASE_URL'):
+        cur = conn.cursor()
+        cur.execute("INSERT INTO sessoes (token,usuario_id,expira_em) VALUES (%s,%s,%s)", (token,user["id"],expira))
+    else:
+        conn.execute("INSERT INTO sessoes (token,usuario_id,expira_em) VALUES (?,?,?)", (token,user["id"],expira))
+    
     conn.commit()
     conn.close()
     resp = JSONResponse({"token":token,"nome":user["nome"],"perfil":user["perfil"]})
