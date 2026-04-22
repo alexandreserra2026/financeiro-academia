@@ -15,7 +15,8 @@ def get_db():
     return conn
 
 def hash_senha(senha):
-    return hashlib.sha256(senha.encode()).hexdigest()
+    import bcrypt
+    return bcrypt.hashpw(senha.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
 
 def init_db():
     conn = get_db()
