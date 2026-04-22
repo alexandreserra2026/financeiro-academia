@@ -347,6 +347,16 @@ def migrate():
     conn.close()
     return {"ok": True, "migracoes": feitos if feitos else "ja atualizadas"}
 
+
+@app.get("/api/update-admin")
+def update_admin():
+    conn = get_db()
+    conn.execute("UPDATE usuarios SET email=?, senha_hash=?, nome=? WHERE perfil='admin'",
+        ("alexandreserrarj@gmail.com", hash_senha("R@fa2503"), "Alexandre Serra"))
+    conn.commit()
+    conn.close()
+    return {"ok": True, "msg": "Admin atualizado!"}
+
 app.mount("/static",StaticFiles(directory="static"),name="static")
 
 @app.get("/{full_path:path}")
