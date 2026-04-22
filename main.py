@@ -337,19 +337,30 @@ def dre(usuario=Depends(get_usuario)):
         "margem":round((receita-total_desp)/receita*100,1) if receita else 0}
 
 
-@app.get("/api/emergency-reset-xk9")
-def emergency_reset():
+@app.get("/api/migrate2")
+def migrate2():
     conn = get_db()
-    # Garante admin existe
-    if conn.execute("SELECT COUNT(*) FROM usuarios WHERE email='alexandreserrarj@gmail.com'").fetchone()[0] == 0:
-        conn.execute("INSERT INTO usuarios (nome,email,senha_hash,perfil) VALUES (?,?,?,?)",
-            ("Alexandre Serra","alexandreserrarj@gmail.com",hash_senha("R@fa2503"),"admin"))
-    else:
-        conn.execute("UPDATE usuarios SET senha_hash=?,perfil='admin',ativo=1 WHERE email='alexandreserrarj@gmail.com'",
-            (hash_senha("R@fa2503"),))
+    cols_p = [r[1] for r in conn.execute("PRAGMA table_info(contas_pagar)").fetchall()]
+    cols_r = [r[1] for r in conn.execute("PRAGMA table_info(contas_receber)").fetchall()]
+    feitos = []
+    novos = [
+        ("observacao", "TEXT"),
+        ("numero_doc", "TEXT"),
+        ("centro_custo", "TEXT"),
+        ("forma_pagamento", "TEXT"),
+        ("data_pagamento", "TEXT"),
+        ("recorrente", "INTEGER DEFAULT 0"),
+    ]
+    for col, tipo in novos:
+        if col not in cols_p:
+            conn.execute(f"ALTER TABLE contas_pagar ADD COLUMN {col} {tipo}")
+            feitos.append("pagar."+col)
+        if col not in cols_r:
+            conn.execute(f"ALTER TABLE contas_receber ADD COLUMN {col} {tipo}")
+            feitos.append("receber."+col)
     conn.commit()
     conn.close()
-    return {"ok": True, "msg": "Admin resetado! Email: alexandreserrarj@gmail.com Senha: R@fa2503"}
+    return {"ok": True, "migracoes": feitos if feitos else "ja atualizadas"}
 
 app.mount("/static",StaticFiles(directory="static"),name="static")
 
