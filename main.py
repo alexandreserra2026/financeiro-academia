@@ -784,6 +784,31 @@ def debug_admin():
         return {"existe": False, "msg": "Admin não encontrado"}
 
 
+
+@app.get("/api/debug-hash")
+def debug_hash():
+    import os
+    conn = get_db()
+    
+    if os.getenv('DATABASE_URL'):
+        cur = conn.cursor()
+        cur.execute("SELECT email, senha_hash FROM usuarios WHERE email = %s", ("alexandreserrarj@gmail.com",))
+        user = cur.fetchone()
+    else:
+        user = conn.execute("SELECT email, senha_hash FROM usuarios WHERE email = ?", ("alexandreserrarj@gmail.com",)).fetchone()
+    
+    conn.close()
+    
+    if user:
+        return {
+            "email": user[0] if isinstance(user, tuple) else user["email"],
+            "senha_hash": user[1] if isinstance(user, tuple) else user["senha_hash"],
+            "hash_length": len(user[1] if isinstance(user, tuple) else user["senha_hash"])
+        }
+    else:
+        return {"erro": "Usuário não encontrado"}
+
+
 app.mount("/static",StaticFiles(directory="static"),name="static")
 
 @app.get("/{full_path:path}")
