@@ -865,27 +865,40 @@ function loadConfig() {
   tipos.forEach(function(tipo) {
     fetch('/api/config/'+tipo, {headers:{'Content-Type':'application/json'}})
     .then(function(r){ return r.json(); })
-    .then(function(data) {
+    .then(function(items) {
       var el = document.getElementById('list-cat-'+tipo);
       if(!el) return;
-      if(!data.length){ el.innerHTML = '<div style="font-size:12px;color:#999;padding:8px">Nenhum cadastrado.</div>'; return; }
-      var html = '';
-      data.forEach(function(item) {
-        var nomeEsc = item.nome.replace(/'/g, "\'");
-        var descEsc = (item.descricao||'').replace(/'/g, "\'");
-        html += '<div style="display:flex;align-items:center;gap:6px;padding:7px 0;border-bottom:1px solid #eee">';
-        html += '<div style="flex:1"><div style="font-size:13px;font-weight:500">' + item.nome + '</div>';
-        if(item.descricao) html += '<div style="font-size:11px;color:#888">' + item.descricao + '</div>';
-        html += '</div>';
-        html += '<span style="font-size:10px;padding:2px 7px;border-radius:999px;background:' + (item.ativo ? '#E1F5EE' : '#f3f4f6') + ';color:' + (item.ativo ? '#0F6E56' : '#999') + '">' + (item.ativo ? 'Ativo' : 'Inativo') + '</span>';
-        html += '<button class="btn sm" onclick="editConfigItem(' + JSON.stringify(tipo) + ',' + item.id + ',' + JSON.stringify(item.nome) + ',' + JSON.stringify(item.descricao||'') + ',' + item.ativo + ',' + item.ordem + ')">Editar</button>';
-        html += '<button class="btn sm danger" onclick="delConfigItem(' + JSON.stringify(tipo) + ',' + item.id + ')">&#10005;</button>';
-        html += '</div>';
-      });
-      el.innerHTML = html;
-    }).catch(function(e){ console.log('config error', e); });
+      if(!items.length){ el.innerHTML = '<div style="font-size:12px;color:#999;padding:8px">Nenhum item.</div>'; return; }
+      var parts = [];
+      for(var x=0; x<items.length; x++) {
+        var it = items[x];
+        var row = '<div style="display:flex;align-items:center;gap:6px;padding:7px 0;border-bottom:1px solid #eee">';
+        row += '<div style="flex:1"><div style="font-size:13px;font-weight:500">' + it.nome + '</div>';
+        if(it.descricao) row += '<div style="font-size:11px;color:#888">' + it.descricao + '</div>';
+        row += '</div>';
+        row += '<span style="font-size:10px;padding:2px 6px;border-radius:999px;background:' + (it.ativo ? '#E1F5EE' : '#f3f4f6') + ';color:' + (it.ativo ? '#C0392B' : '#999') + '">' + (it.ativo ? 'Ativo' : 'Inativo') + '</span>';
+        var dataStr = encodeURIComponent(JSON.stringify({id:it.id,tipo:tipo,nome:it.nome,desc:it.descricao||'',ativo:it.ativo,ordem:it.ordem}));
+        row += '<button class="btn sm" onclick="editConfig(decodeURIComponent(' + "'" + dataStr + "'" + '))">Editar</button>';
+        row += '<button class="btn sm danger" onclick="delConfigItem(' + "'" + tipo + "'," + it.id + ')">&#10005;</button>';
+        row += '</div>';
+        parts.push(row);
+      }
+      el.innerHTML = parts.join('');
+    }).catch(function(e){ console.log('config error', tipo, e); });
   });
 }
+
+function editConfig(dataStr) {
+  var data = JSON.parse(dataStr);
+  var novoNome = prompt('Nome:', data.nome);
+  if(novoNome === null) return;
+  var novaDesc = prompt('Descricao:', data.desc);
+  if(novaDesc === null) return;
+  var novoAtivo = confirm('Ativo? (OK=Sim)') ? 1 : 0;
+  fetch('/api/config/'+data.tipo+'/'+data.id, {method:'PATCH', headers:{'Content-Type':'application/json'}, body:JSON.stringify({nome:novoNome, descricao:novaDesc, ativo:novoAtivo, ordem:data.ordem})})
+  .then(function(){ loadConfig(); });
+}
+
 
 function loadCatSelect(selectId, tipo) {
   fetch('/api/config/'+tipo, {headers:{'Content-Type':'application/json'}})
@@ -932,19 +945,9 @@ function loadConfig() {
 function addConfigItem(tipo) {
   var nome = prompt('Nome da categoria:');
   if(!nome || !nome.trim()) return;
-  var desc = prompt('Descrição (opcional):') || '';
+  var desc = prompt('Descricao (opcional):') || '';
   fetch('/api/config/'+tipo, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({nome:nome.trim(), descricao:desc, ativo:1, ordem:0})})
-  .then(function(res){ if(res.ok){ loadConfig(); } else { alert('Erro: nome já existe.'); } });
-}
-
-function editConfigItem(tipo, id, nome, desc, ativo, ordem) {
-  var novoNome = prompt('Nome:', nome);
-  if(novoNome === null) return;
-  var novaDesc = prompt('Descrição:', desc);
-  if(novaDesc === null) return;
-  var novoAtivo = confirm('Ativo? (OK = Sim, Cancelar = Inativo)') ? 1 : 0;
-  fetch('/api/config/'+tipo+'/'+id, {method:'PATCH', headers:{'Content-Type':'application/json'}, body:JSON.stringify({nome:novoNome, descricao:novaDesc, ativo:novoAtivo, ordem:ordem})})
-  .then(function(){ loadConfig(); });
+  .then(function(res){ if(res.ok){ loadConfig(); } else { alert('Erro: nome ja existe.'); } });
 }
 
 function delConfigItem(tipo, id) {
