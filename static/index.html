@@ -83,6 +83,56 @@
       alert('Funcionalidade de exportação PDF será implementada em breve!');
     }
 
+  
+    
+    async function gerarRelatorio(tipo, formato) {
+      const dataInicio = document.getElementById('relDataInicio').value;
+      const dataFim = document.getElementById('relDataFim').value;
+      const tipoConta = document.getElementById('relTipo').value;
+      const status = document.getElementById('relStatus').value;
+      
+      if (!dataInicio || !dataFim) {
+        alert('Por favor, selecione o período do relatório');
+        return;
+      }
+      
+      const params = new URLSearchParams({
+        tipo: tipo,
+        formato: formato,
+        data_inicio: dataInicio,
+        data_fim: dataFim,
+        tipo_conta: tipoConta,
+        status: status
+      });
+      
+      try {
+        const response = await fetch('/api/relatorios?' + params);
+        
+        if (formato === 'pdf' || formato === 'excel') {
+          const blob = await response.blob();
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `relatorio_${tipo}_${dataInicio}_${dataFim}.${formato === 'pdf' ? 'pdf' : 'xlsx'}`;
+          document.body.appendChild(a);
+          a.click();
+          window.URL.revokeObjectURL(url);
+          document.body.removeChild(a);
+        }
+      } catch (err) {
+        alert('Erro ao gerar relatório: ' + err.message);
+      }
+    }
+    
+    // Definir datas padrão (último mês)
+    window.addEventListener('load', () => {
+      const hoje = new Date();
+      const umMesAtras = new Date(hoje.getFullYear(), hoje.getMonth() - 1, hoje.getDate());
+      
+      document.getElementById('relDataFim').value = hoje.toISOString().split('T')[0];
+      document.getElementById('relDataInicio').value = umMesAtras.toISOString().split('T')[0];
+    });
+
   </script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -1352,6 +1402,56 @@ fetch('/api/me').then(function(r){
     function exportarDRE() {
       alert('Funcionalidade de exportação PDF será implementada em breve!');
     }
+
+  
+    
+    async function gerarRelatorio(tipo, formato) {
+      const dataInicio = document.getElementById('relDataInicio').value;
+      const dataFim = document.getElementById('relDataFim').value;
+      const tipoConta = document.getElementById('relTipo').value;
+      const status = document.getElementById('relStatus').value;
+      
+      if (!dataInicio || !dataFim) {
+        alert('Por favor, selecione o período do relatório');
+        return;
+      }
+      
+      const params = new URLSearchParams({
+        tipo: tipo,
+        formato: formato,
+        data_inicio: dataInicio,
+        data_fim: dataFim,
+        tipo_conta: tipoConta,
+        status: status
+      });
+      
+      try {
+        const response = await fetch('/api/relatorios?' + params);
+        
+        if (formato === 'pdf' || formato === 'excel') {
+          const blob = await response.blob();
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `relatorio_${tipo}_${dataInicio}_${dataFim}.${formato === 'pdf' ? 'pdf' : 'xlsx'}`;
+          document.body.appendChild(a);
+          a.click();
+          window.URL.revokeObjectURL(url);
+          document.body.removeChild(a);
+        }
+      } catch (err) {
+        alert('Erro ao gerar relatório: ' + err.message);
+      }
+    }
+    
+    // Definir datas padrão (último mês)
+    window.addEventListener('load', () => {
+      const hoje = new Date();
+      const umMesAtras = new Date(hoje.getFullYear(), hoje.getMonth() - 1, hoje.getDate());
+      
+      document.getElementById('relDataFim').value = hoje.toISOString().split('T')[0];
+      document.getElementById('relDataInicio').value = umMesAtras.toISOString().split('T')[0];
+    });
 
   </script>
 </body>
