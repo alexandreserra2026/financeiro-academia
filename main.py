@@ -13,6 +13,43 @@ def get_db():
     conn, db_type = get_db_connection()
     return conn
 
+
+def execute_query(conn, query, params=None):
+    """Executa query compatível com PostgreSQL e SQLite"""
+    import os
+    if os.getenv('DATABASE_URL'):
+        # PostgreSQL - usa cursor e %s
+        query_pg = query.replace('?', '%s')
+        cur = conn.cursor()
+        if params:
+            cur.execute(query_pg, params)
+        else:
+            cur.execute(query_pg)
+        return cur
+    else:
+        # SQLite - usa execute direto
+        if params:
+            return execute_query(conn, query, params)
+        else:
+            return execute_query(conn, query)
+
+def fetchall_dict(conn, query, params=None):
+    """Retorna resultados como lista de dicts"""
+    import os
+    cur = execute_query(conn, query, params)
+    
+    if os.getenv('DATABASE_URL'):
+        # PostgreSQL - converte tuplas para dicts
+        rows = cur.fetchall()
+        if not rows:
+            return []
+        columns = [desc[0] for desc in cur.description]
+        return [dict(zip(columns, row)) for row in rows]
+    else:
+        # SQLite - já retorna dicts com row_factory
+        return [dict(r) for r in cur.fetchall()]
+
+
 def hash_senha(senha):
     import bcrypt
     return bcrypt.hashpw(senha.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
@@ -63,9 +100,9 @@ def init_db():
             criado_em TEXT DEFAULT (datetime('now'))
         );
     """)
-    cur = conn.execute("SELECT COUNT(*) FROM usuarios")
+    cur = execute_query(conn, "SELECT COUNT(*) FROM usuarios")
     if cur.fetchone()[0] == 0:
-        conn.execute("INSERT INTO usuarios (nome,email,senha_hash,perfil) VALUES (?,?,?,?)",
+        execute_query(conn, "INSERT INTO usuarios (nome,email,senha_hash,perfil) VALUES (?,?,?,?)",
             ("Administrador","admin@academia.com",hash_senha("admin123"),"admin"))
     conn.commit()
     conn.close()
@@ -144,7 +181,7 @@ def login(data: LoginIn):
         else:
             user = None
     else:
-        user = conn.execute("SELECT * FROM usuarios WHERE email=? AND ativo=1", (data.email,)).fetchone()
+        user = execute_query(conn, "SELECT * FROM usuarios WHERE email=? AND ativo=1", (data.email,)).fetchone()
     
     # Verifica a senha com bcrypt
     print(f"[LOGIN DEBUG] User found: {user is not None}")
@@ -171,7 +208,7 @@ def login(data: LoginIn):
         cur = conn.cursor()
         cur.execute("INSERT INTO sessoes (token,usuario_id,expira_em) VALUES (%s,%s,%s)", (token,user["id"],expira))
     else:
-        conn.execute("INSERT INTO sessoes (token,usuario_id,expira_em) VALUES (?,?,?)", (token,user["id"],expira))
+        execute_query(conn, "INSERT INTO sessoes (token,usuario_id,expira_em) VALUES (?,?,?)", (token,user["id"],expira))
     
     conn.commit()
     conn.close()
@@ -184,7 +221,7 @@ def logout(request: Request):
     token = request.cookies.get("token")
     if token:
         conn = get_db()
-        conn.execute("DELETE FROM sessoes WHERE token=?",(token,))
+        execute_query(conn, "DELETE FROM sessoes WHERE token=?",(token,))
         conn.commit()
         conn.close()
     resp = JSONResponse({"ok":True})
@@ -198,7 +235,7 @@ def me(usuario=Depends(get_usuario)):
 @app.get("/api/usuarios")
 def listar_usuarios(admin=Depends(requer_admin)):
     conn = get_db()
-    rows = conn.execute("SELECT id,nome,email,perfil,ativo,criado_em FROM usuarios ORDER BY id").fetchall()
+    rows = fetchall_dict(conn, "SELECT id,nome,email,perfil,ativo,criado_em FROM usuarios ORDER BY id")
     conn.close()
     return [dict(r) for r in rows]
 
@@ -206,7 +243,7 @@ def listar_usuarios(admin=Depends(requer_admin)):
 def criar_usuario(data: UsuarioIn, admin=Depends(requer_admin)):
     conn = get_db()
     try:
-        conn.execute("INSERT INTO usuarios (nome,email,senha_hash,perfil) VALUES (?,?,?,?)",
+        execute_query(conn, "INSERT INTO usuarios (nome,email,senha_hash,perfil) VALUES (?,?,?,?)",
             (data.nome,data.email,hash_senha(data.senha),data.perfil))
         conn.commit()
     except sqlite3.IntegrityError:
@@ -218,20 +255,20 @@ def criar_usuario(data: UsuarioIn, admin=Depends(requer_admin)):
 @app.patch("/api/usuarios/{id}")
 def atualizar_usuario(id: int, data: UsuarioUpdate, admin=Depends(requer_admin)):
     conn = get_db()
-    if data.nome: conn.execute("UPDATE usuarios SET nome=? WHERE id=?",(data.nome,id))
-    if data.email: conn.execute("UPDATE usuarios SET email=? WHERE id=?",(data.email,id))
-    if data.senha: conn.execute("UPDATE usuarios SET senha_hash=? WHERE id=?",(hash_senha(data.senha),id))
-    if data.perfil: conn.execute("UPDATE usuarios SET perfil=? WHERE id=?",(data.perfil,id))
-    if data.ativo is not None: conn.execute("UPDATE usuarios SET ativo=? WHERE id=?",(data.ativo,id))
+    if data.nome: execute_query(conn, "UPDATE usuarios SET nome=? WHERE id=?",(data.nome,id))
+    if data.email: execute_query(conn, "UPDATE usuarios SET email=? WHERE id=?",(data.email,id))
+    if data.senha: execute_query(conn, "UPDATE usuarios SET senha_hash=? WHERE id=?",(hash_senha(data.senha),id))
+    if data.perfil: execute_query(conn, "UPDATE usuarios SET perfil=? WHERE id=?",(data.perfil,id))
+    if data.ativo is not None: execute_query(conn, "UPDATE usuarios SET ativo=? WHERE id=?",(data.ativo,id))
     conn.commit()
-    row = conn.execute("SELECT id,nome,email,perfil,ativo FROM usuarios WHERE id=?",(id,)).fetchone()
+    row = execute_query(conn, "SELECT id,nome,email,perfil,ativo FROM usuarios WHERE id=?",(id,)).fetchone()
     conn.close()
     return dict(row)
 
 @app.delete("/api/usuarios/{id}")
 def deletar_usuario(id: int, admin=Depends(requer_admin)):
     conn = get_db()
-    conn.execute("DELETE FROM usuarios WHERE id=?",(id,))
+    execute_query(conn, "DELETE FROM usuarios WHERE id=?",(id,))
     conn.commit()
     conn.close()
     return {"ok":True}
@@ -249,7 +286,7 @@ def listar_pagar(status: Optional[str]=None, usuario=Depends(get_usuario)):
     q="SELECT * FROM contas_pagar"
     if conds: q+=" WHERE "+" AND ".join(conds)
     q+=" ORDER BY vencimento ASC"
-    rows=conn.execute(q,params).fetchall()
+    rows=fetchall_dict(conn, q,params)
     conn.close()
     return [dict(r) for r in rows]
 
@@ -258,26 +295,26 @@ def criar_pagar(conta: ContaIn, usuario=Depends(pode_editar)):
     if conta.restrita and usuario["perfil"]!="admin":
         raise HTTPException(403,"Só admin pode criar contas restritas")
     conn = get_db()
-    cur=conn.execute("INSERT INTO contas_pagar (desc,categoria,valor,vencimento,status,restrita) VALUES (?,?,?,?,?,?)",
+    cur=execute_query(conn, "INSERT INTO contas_pagar (desc,categoria,valor,vencimento,status,restrita) VALUES (?,?,?,?,?,?)",
         (conta.desc,conta.categoria,conta.valor,conta.vencimento,conta.status,conta.restrita or 0))
     conn.commit()
-    row=conn.execute("SELECT * FROM contas_pagar WHERE id=?",(cur.lastrowid,)).fetchone()
+    row=execute_query(conn, "SELECT * FROM contas_pagar WHERE id=?",(cur.lastrowid,)).fetchone()
     conn.close()
     return dict(row)
 
 @app.patch("/api/pagar/{id}")
 def atualizar_pagar(id: int, update: StatusUpdate, usuario=Depends(pode_editar)):
     conn = get_db()
-    conn.execute("UPDATE contas_pagar SET status=? WHERE id=?",(update.status,id))
+    execute_query(conn, "UPDATE contas_pagar SET status=? WHERE id=?",(update.status,id))
     conn.commit()
-    row=conn.execute("SELECT * FROM contas_pagar WHERE id=?",(id,)).fetchone()
+    row=execute_query(conn, "SELECT * FROM contas_pagar WHERE id=?",(id,)).fetchone()
     conn.close()
     return dict(row)
 
 @app.delete("/api/pagar/{id}")
 def deletar_pagar(id: int, admin=Depends(requer_admin)):
     conn = get_db()
-    conn.execute("DELETE FROM contas_pagar WHERE id=?",(id,))
+    execute_query(conn, "DELETE FROM contas_pagar WHERE id=?",(id,))
     conn.commit()
     conn.close()
     return {"ok":True}
@@ -292,7 +329,7 @@ def listar_receber(status: Optional[str]=None, usuario=Depends(get_usuario)):
     q="SELECT * FROM contas_receber"
     if conds: q+=" WHERE "+" AND ".join(conds)
     q+=" ORDER BY vencimento ASC"
-    rows=conn.execute(q,params).fetchall()
+    rows=fetchall_dict(conn, q,params)
     conn.close()
     return [dict(r) for r in rows]
 
@@ -301,26 +338,26 @@ def criar_receber(conta: ContaIn, usuario=Depends(pode_editar)):
     if conta.restrita and usuario["perfil"]!="admin":
         raise HTTPException(403,"Só admin pode criar contas restritas")
     conn = get_db()
-    cur=conn.execute("INSERT INTO contas_receber (desc,categoria,valor,vencimento,status,restrita) VALUES (?,?,?,?,?,?)",
+    cur=execute_query(conn, "INSERT INTO contas_receber (desc,categoria,valor,vencimento,status,restrita) VALUES (?,?,?,?,?,?)",
         (conta.desc,conta.categoria,conta.valor,conta.vencimento,conta.status,conta.restrita or 0))
     conn.commit()
-    row=conn.execute("SELECT * FROM contas_receber WHERE id=?",(cur.lastrowid,)).fetchone()
+    row=execute_query(conn, "SELECT * FROM contas_receber WHERE id=?",(cur.lastrowid,)).fetchone()
     conn.close()
     return dict(row)
 
 @app.patch("/api/receber/{id}")
 def atualizar_receber(id: int, update: StatusUpdate, usuario=Depends(pode_editar)):
     conn = get_db()
-    conn.execute("UPDATE contas_receber SET status=? WHERE id=?",(update.status,id))
+    execute_query(conn, "UPDATE contas_receber SET status=? WHERE id=?",(update.status,id))
     conn.commit()
-    row=conn.execute("SELECT * FROM contas_receber WHERE id=?",(id,)).fetchone()
+    row=execute_query(conn, "SELECT * FROM contas_receber WHERE id=?",(id,)).fetchone()
     conn.close()
     return dict(row)
 
 @app.delete("/api/receber/{id}")
 def deletar_receber(id: int, admin=Depends(requer_admin)):
     conn = get_db()
-    conn.execute("DELETE FROM contas_receber WHERE id=?",(id,))
+    execute_query(conn, "DELETE FROM contas_receber WHERE id=?",(id,))
     conn.commit()
     conn.close()
     return {"ok":True}
@@ -331,17 +368,17 @@ def resumo(usuario=Depends(get_usuario)):
     hoje = datetime.date.today().isoformat()
     em7 = (datetime.date.today()+timedelta(days=7)).isoformat()
     fr = " AND restrita=0" if not ve_restritas(usuario) else ""
-    a_pagar=conn.execute(f"SELECT COALESCE(SUM(valor),0) FROM contas_pagar WHERE status!='pago'{fr}").fetchone()[0]
-    a_receber=conn.execute(f"SELECT COALESCE(SUM(valor),0) FROM contas_receber WHERE status!='recebido'{fr}").fetchone()[0]
-    pago_mes=conn.execute(f"SELECT COALESCE(SUM(valor),0) FROM contas_pagar WHERE status='pago'{fr}").fetchone()[0]
-    recebido_mes=conn.execute(f"SELECT COALESCE(SUM(valor),0) FROM contas_receber WHERE status='recebido'{fr}").fetchone()[0]
-    venc7_p=conn.execute(f"SELECT COUNT(*) FROM contas_pagar WHERE status='aberto' AND vencimento<=? AND vencimento>=?{fr}",(em7,hoje)).fetchone()[0]
-    venc7_r=conn.execute(f"SELECT COUNT(*) FROM contas_receber WHERE status='aberto' AND vencimento<=? AND vencimento>=?{fr}",(em7,hoje)).fetchone()[0]
-    vencidos_p=conn.execute(f"SELECT COUNT(*) FROM contas_pagar WHERE status='aberto' AND vencimento<?{fr}",(hoje,)).fetchone()[0]
+    a_pagar=execute_query(conn, f"SELECT COALESCE(SUM(valor),0) FROM contas_pagar WHERE status!='pago'{fr}").fetchone()[0]
+    a_receber=execute_query(conn, f"SELECT COALESCE(SUM(valor),0) FROM contas_receber WHERE status!='recebido'{fr}").fetchone()[0]
+    pago_mes=execute_query(conn, f"SELECT COALESCE(SUM(valor),0) FROM contas_pagar WHERE status='pago'{fr}").fetchone()[0]
+    recebido_mes=execute_query(conn, f"SELECT COALESCE(SUM(valor),0) FROM contas_receber WHERE status='recebido'{fr}").fetchone()[0]
+    venc7_p=execute_query(conn, f"SELECT COUNT(*) FROM contas_pagar WHERE status='aberto' AND vencimento<=? AND vencimento>=?{fr}",(em7,hoje)).fetchone()[0]
+    venc7_r=execute_query(conn, f"SELECT COUNT(*) FROM contas_receber WHERE status='aberto' AND vencimento<=? AND vencimento>=?{fr}",(em7,hoje)).fetchone()[0]
+    vencidos_p=execute_query(conn, f"SELECT COUNT(*) FROM contas_pagar WHERE status='aberto' AND vencimento<?{fr}",(hoje,)).fetchone()[0]
     prox=[]
-    for row in conn.execute(f"SELECT *,'pagar' as tipo FROM contas_pagar WHERE status IN ('aberto','vencido') AND vencimento<=?{fr} ORDER BY vencimento LIMIT 5",(em7,)).fetchall():
+    for row in fetchall_dict(conn, f"SELECT *,'pagar' as tipo FROM contas_pagar WHERE status IN ('aberto','vencido') AND vencimento<=?{fr} ORDER BY vencimento LIMIT 5",(em7,)):
         prox.append(dict(row))
-    for row in conn.execute(f"SELECT *,'receber' as tipo FROM contas_receber WHERE status IN ('aberto','vencido') AND vencimento<=?{fr} ORDER BY vencimento LIMIT 5",(em7,)).fetchall():
+    for row in fetchall_dict(conn, f"SELECT *,'receber' as tipo FROM contas_receber WHERE status IN ('aberto','vencido') AND vencimento<=?{fr} ORDER BY vencimento LIMIT 5",(em7,)):
         prox.append(dict(row))
     conn.close()
     return {"a_pagar":a_pagar,"a_receber":a_receber,"saldo_previsto":a_receber-a_pagar,
@@ -361,9 +398,9 @@ def get_dashboard():
         cur.execute("SELECT COALESCE(SUM(valor), 0) FROM contas_pagar WHERE status = 'pago'")
         total_despesas = float(cur.fetchone()[0])
     else:
-        cur = conn.execute("SELECT COALESCE(SUM(valor), 0) FROM contas_receber WHERE status = 'recebido'")
+        cur = execute_query(conn, "SELECT COALESCE(SUM(valor), 0) FROM contas_receber WHERE status = 'recebido'")
         total_receitas = float(cur.fetchone()[0])
-        cur = conn.execute("SELECT COALESCE(SUM(valor), 0) FROM contas_pagar WHERE status = 'pago'")
+        cur = execute_query(conn, "SELECT COALESCE(SUM(valor), 0) FROM contas_pagar WHERE status = 'pago'")
         total_despesas = float(cur.fetchone()[0])
     
     conn.close()
@@ -378,8 +415,8 @@ def get_dashboard():
 def dre(usuario=Depends(get_usuario)):
     conn = get_db()
     fr = " AND restrita=0" if not ve_restritas(usuario) else ""
-    receita=conn.execute(f"SELECT COALESCE(SUM(valor),0) FROM contas_receber WHERE 1=1{fr}").fetchone()[0]
-    despesas=conn.execute(f"SELECT categoria,COALESCE(SUM(valor),0) as total FROM contas_pagar WHERE 1=1{fr} GROUP BY categoria ORDER BY total DESC").fetchall()
+    receita=execute_query(conn, f"SELECT COALESCE(SUM(valor),0) FROM contas_receber WHERE 1=1{fr}").fetchone()[0]
+    despesas=fetchall_dict(conn, f"SELECT categoria,COALESCE(SUM(valor),0) as total FROM contas_pagar WHERE 1=1{fr} GROUP BY categoria ORDER BY total DESC")
     total_desp=sum(r["total"] for r in despesas)
     conn.close()
     return {"receita_bruta":receita,"despesas":[dict(r) for r in despesas],
@@ -390,8 +427,8 @@ def dre(usuario=Depends(get_usuario)):
 @app.get("/api/migrate2")
 def migrate2():
     conn = get_db()
-    cols_p = [r[1] for r in conn.execute("PRAGMA table_info(contas_pagar)").fetchall()]
-    cols_r = [r[1] for r in conn.execute("PRAGMA table_info(contas_receber)").fetchall()]
+    cols_p = [r[1] for r in fetchall_dict(conn, "PRAGMA table_info(contas_pagar)")]
+    cols_r = [r[1] for r in fetchall_dict(conn, "PRAGMA table_info(contas_receber)")]
     feitos = []
     novos = [
         ("observacao", "TEXT"),
@@ -403,10 +440,10 @@ def migrate2():
     ]
     for col, tipo in novos:
         if col not in cols_p:
-            conn.execute(f"ALTER TABLE contas_pagar ADD COLUMN {col} {tipo}")
+            execute_query(conn, f"ALTER TABLE contas_pagar ADD COLUMN {col} {tipo}")
             feitos.append("pagar."+col)
         if col not in cols_r:
-            conn.execute(f"ALTER TABLE contas_receber ADD COLUMN {col} {tipo}")
+            execute_query(conn, f"ALTER TABLE contas_receber ADD COLUMN {col} {tipo}")
             feitos.append("receber."+col)
     conn.commit()
     conn.close()
@@ -436,7 +473,7 @@ def setup():
             conn.commit()
         else:
             # SQLite
-            conn.execute("DELETE FROM usuarios WHERE email = ?", ("alexandreserrarj@gmail.com",))
+            execute_query(conn, "DELETE FROM usuarios WHERE email = ?", ("alexandreserrarj@gmail.com",))
             conn.execute(
                 "INSERT INTO usuarios (nome, email, senha_hash, perfil) VALUES (?, ?, ?, ?)",
                 ("Alexandre Serra", "alexandreserrarj@gmail.com", senha_hash, "admin")
@@ -451,8 +488,8 @@ def setup():
 @app.get("/api/emergency-reset-xk9")
 def emergency_reset():
     conn = get_db()
-    if conn.execute("SELECT COUNT(*) FROM usuarios WHERE email='alexandreserrarj@gmail.com'").fetchone()[0] == 0:
-        conn.execute("INSERT INTO usuarios (nome,email,senha_hash,perfil) VALUES (?,?,?,?)",
+    if execute_query(conn, "SELECT COUNT(*) FROM usuarios WHERE email='alexandreserrarj@gmail.com'").fetchone()[0] == 0:
+        execute_query(conn, "INSERT INTO usuarios (nome,email,senha_hash,perfil) VALUES (?,?,?,?)",
             ("Alexandre Serra","alexandreserrarj@gmail.com",hash_senha("R@fa2503"),"admin"))
     else:
         conn.execute("UPDATE usuarios SET senha_hash=?,perfil='admin',ativo=1 WHERE email='alexandreserrarj@gmail.com'",
@@ -837,7 +874,7 @@ def debug_hash():
         cur.execute("SELECT email, senha_hash FROM usuarios WHERE email = %s", ("alexandreserrarj@gmail.com",))
         user = cur.fetchone()
     else:
-        user = conn.execute("SELECT email, senha_hash FROM usuarios WHERE email = ?", ("alexandreserrarj@gmail.com",)).fetchone()
+        user = execute_query(conn, "SELECT email, senha_hash FROM usuarios WHERE email = ?", ("alexandreserrarj@gmail.com",)).fetchone()
     
     conn.close()
     
@@ -1056,16 +1093,16 @@ def config_migrate():
     fp = [("Pix","Transferência via Pix",1),("Dinheiro","Pagamento em espécie",2),("Cartão de Débito","Débito na maquininha",3),("Cartão de Crédito","Crédito na maquininha",4),("Boleto Bancário","Boleto bancário",5),("Transferência Bancária","TED ou DOC",6),("Débito Automático","Cobrança automática",7)]
     
     for nome,desc,ordem in desp:
-        try: conn.execute("INSERT INTO categorias_despesa (nome,descricao,ordem) VALUES (?,?,?)",(nome,desc,ordem))
+        try: execute_query(conn, "INSERT INTO categorias_despesa (nome,descricao,ordem) VALUES (?,?,?)",(nome,desc,ordem))
         except: pass
     for nome,desc,ordem in rec:
-        try: conn.execute("INSERT INTO categorias_receita (nome,descricao,ordem) VALUES (?,?,?)",(nome,desc,ordem))
+        try: execute_query(conn, "INSERT INTO categorias_receita (nome,descricao,ordem) VALUES (?,?,?)",(nome,desc,ordem))
         except: pass
     for nome,desc,ordem in cc:
-        try: conn.execute("INSERT INTO centros_custo (nome,descricao,ordem) VALUES (?,?,?)",(nome,desc,ordem))
+        try: execute_query(conn, "INSERT INTO centros_custo (nome,descricao,ordem) VALUES (?,?,?)",(nome,desc,ordem))
         except: pass
     for nome,desc,ordem in fp:
-        try: conn.execute("INSERT INTO formas_pagamento (nome,descricao,ordem) VALUES (?,?,?)",(nome,desc,ordem))
+        try: execute_query(conn, "INSERT INTO formas_pagamento (nome,descricao,ordem) VALUES (?,?,?)",(nome,desc,ordem))
         except: pass
     conn.commit(); conn.close()
     return {"ok": True, "msg": "Configurações migradas!"}
@@ -1085,7 +1122,7 @@ def listar_config(tipo: str, u=Depends(get_usuario)):
     tab = config_tabela(tipo)
     if not tab: raise HTTPException(400, "Tipo inválido")
     conn = get_db()
-    rows = conn.execute(f"SELECT * FROM {tab} ORDER BY ordem, nome").fetchall()
+    rows = fetchall_dict(conn, f"SELECT * FROM {tab} ORDER BY ordem, nome")
     conn.close()
     return [dict(r) for r in rows]
 
@@ -1095,7 +1132,7 @@ def criar_config(tipo: str, item: ConfigItem, admin=Depends(requer_admin)):
     if not tab: raise HTTPException(400, "Tipo inválido")
     conn = get_db()
     try:
-        conn.execute(f"INSERT INTO {tab} (nome,descricao,ativo,ordem) VALUES (?,?,?,?)", (item.nome, item.descricao, item.ativo, item.ordem))
+        execute_query(conn, f"INSERT INTO {tab} (nome,descricao,ativo,ordem) VALUES (?,?,?,?)", (item.nome, item.descricao, item.ativo, item.ordem))
         conn.commit()
     except: raise HTTPException(400, "Nome já existe")
     finally: conn.close()
@@ -1106,9 +1143,9 @@ def atualizar_config(tipo: str, id: int, item: ConfigItem, admin=Depends(requer_
     tab = config_tabela(tipo)
     if not tab: raise HTTPException(400, "Tipo inválido")
     conn = get_db()
-    conn.execute(f"UPDATE {tab} SET nome=?,descricao=?,ativo=?,ordem=? WHERE id=?", (item.nome, item.descricao, item.ativo, item.ordem, id))
+    execute_query(conn, f"UPDATE {tab} SET nome=?,descricao=?,ativo=?,ordem=? WHERE id=?", (item.nome, item.descricao, item.ativo, item.ordem, id))
     conn.commit()
-    row = conn.execute(f"SELECT * FROM {tab} WHERE id=?", (id,)).fetchone()
+    row = execute_query(conn, f"SELECT * FROM {tab} WHERE id=?", (id,)).fetchone()
     conn.close()
     return dict(row)
 
@@ -1117,6 +1154,6 @@ def deletar_config(tipo: str, id: int, admin=Depends(requer_admin)):
     tab = config_tabela(tipo)
     if not tab: raise HTTPException(400, "Tipo inválido")
     conn = get_db()
-    conn.execute(f"DELETE FROM {tab} WHERE id=?", (id,))
+    execute_query(conn, f"DELETE FROM {tab} WHERE id=?", (id,))
     conn.commit(); conn.close()
     return {"ok": True}
