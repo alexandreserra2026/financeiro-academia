@@ -142,20 +142,22 @@ class StatusUpdate(BaseModel):
 @app.post("/api/login")
 def login(data: LoginIn):
     import os
+    import bcrypt
     conn = get_db()
-    senha_hash = hash_senha(data.senha)
     
-    # PostgreSQL usa %s, SQLite usa ?
+    # Busca o usuário pelo email
     if os.getenv('DATABASE_URL'):
         cur = conn.cursor()
-        cur.execute("SELECT * FROM usuarios WHERE email=%s AND senha_hash=%s AND ativo=1",
-            (data.email, senha_hash))
+        cur.execute("SELECT * FROM usuarios WHERE email=%s AND ativo=1", (data.email,))
         user = cur.fetchone()
+        if user:
+            # Converte tupla do PostgreSQL para dict
+            user = {"id": user[0], "nome": user[1], "email": user[2], "senha_hash": user[3], "perfil": user[4]}
     else:
-        user = conn.execute("SELECT * FROM usuarios WHERE email=? AND senha_hash=? AND ativo=1",
-            (data.email, senha_hash)).fetchone()
+        user = conn.execute("SELECT * FROM usuarios WHERE email=? AND ativo=1", (data.email,)).fetchone()
     
-    if not user:
+    # Verifica a senha com bcrypt
+    if not user or not bcrypt.checkpw(data.senha.encode('utf-8'), user["senha_hash"].encode('utf-8')):
         conn.close()
         raise HTTPException(401, "E-mail ou senha incorretos")
     token = secrets.token_hex(32)
