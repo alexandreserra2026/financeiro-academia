@@ -190,6 +190,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       <button class="nav-item" onclick="goTo('relatorios',this)"><span class="icon">&#128248;</span> Relatórios</button>
       <div class="nav-section" id="sec-admin" style="display:none">Administração</div>
       <button class="nav-item" id="nav-usuarios" style="display:none" onclick="goTo('usuarios',this)"><span class="icon">&#128101;</span> Usuários</button>
+      <div class="nav-section" id="sec-config" style="display:none">Configurações</div>
+      <button class="nav-item" id="nav-config" style="display:none" onclick="goTo('config',this)"><span class="icon">&#9881;&#65039;</span> Configurações</button>
       <div class="nav-section">IA</div>
       <button class="nav-item" onclick="goTo('chat',this)"><span class="icon">&#129302;</span> Agente IA</button>
     </nav>
@@ -391,6 +393,48 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
         </div>
       </div>
 
+
+      <!-- CONFIGURAÇÕES -->
+      <div id="config" class="page">
+        <div class="page-header">
+          <div>
+            <div class="page-title">Configurações</div>
+            <div class="page-sub">Gerencie categorias, centros de custo e formas de pagamento</div>
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
+
+          <div class="chart-card">
+            <div class="chart-title">&#128193; Categorias de Despesa</div>
+            <div class="chart-sub">Clique para editar ou adicionar</div>
+            <button class="btn primary sm" style="margin-bottom:10px" onclick="addConfigItem('despesa')">+ Adicionar</button>
+            <div id="list-cat-despesa"></div>
+          </div>
+
+          <div class="chart-card">
+            <div class="chart-title">&#128181; Categorias de Receita</div>
+            <div class="chart-sub">Clique para editar ou adicionar</div>
+            <button class="btn primary sm" style="margin-bottom:10px" onclick="addConfigItem('receita')">+ Adicionar</button>
+            <div id="list-cat-receita"></div>
+          </div>
+
+          <div class="chart-card">
+            <div class="chart-title">&#127970; Centros de Custo</div>
+            <div class="chart-sub">Setores da academia</div>
+            <button class="btn primary sm" style="margin-bottom:10px" onclick="addConfigItem('centro')">+ Adicionar</button>
+            <div id="list-cat-centro"></div>
+          </div>
+
+          <div class="chart-card">
+            <div class="chart-title">&#128179; Formas de Pagamento</div>
+            <div class="chart-sub">Meios aceitos pela academia</div>
+            <button class="btn primary sm" style="margin-bottom:10px" onclick="addConfigItem('pagamento')">+ Adicionar</button>
+            <div id="list-cat-pagamento"></div>
+          </div>
+
+        </div>
+      </div>
       <!-- CHAT -->
       <div id="chat" class="page">
         <div class="page-title" style="margin-bottom:1.5rem">Agente IA</div>
@@ -471,6 +515,8 @@ function showApp() {
   pb.textContent = labels[ME.perfil] || ME.perfil;
   var isAdmin = ME.perfil === 'admin';
   document.getElementById('nav-usuarios').style.display = isAdmin ? 'flex' : 'none';
+  document.getElementById('nav-config').style.display = isAdmin ? 'flex' : 'none';
+  document.getElementById('sec-config').style.display = isAdmin ? 'block' : 'none';
   document.getElementById('sec-admin').style.display = isAdmin ? 'block' : 'none';
   document.getElementById('btn-nova-pagar').style.display = ME.perfil!=='visualizador' ? '' : 'none';
   document.getElementById('btn-nova-receber').style.display = ME.perfil!=='visualizador' ? '' : 'none';
@@ -490,6 +536,9 @@ function goTo(page, btn) {
   if(page==='fluxo') loadFluxo();
   if(page==='dre') loadDRE();
   if(page==='usuarios') loadUsuarios();
+  if(page==='config') loadConfig();
+  if(page==='pagar') { loadLista('pagar'); loadCatSelect('p-cat','despesa'); }
+  if(page==='receber') { loadLista('receber'); loadCatSelect('r-cat','receita'); }
 }
 
 function toggleForm(id) { document.getElementById(id).classList.toggle('open'); }
@@ -789,6 +838,74 @@ function previewRel(){
 }
 function atalho(tipo,periodo,formato){
   document.getElementById('rel-tipo').value=tipo; document.getElementById('rel-periodo').value=periodo; document.getElementById('rel-formato').value=formato; gerarRel();
+}
+
+
+
+function loadCatSelect(selectId, tipo) {
+  fetch('/api/config/'+tipo, {headers:{'Content-Type':'application/json'}})
+  .then(function(r){ return r.json(); })
+  .then(function(data) {
+    var sel = document.getElementById(selectId);
+    if(!sel) return;
+    var current = sel.value;
+    sel.innerHTML = '';
+    data.filter(function(d){ return d.ativo; }).forEach(function(item) {
+      var opt = document.createElement('option');
+      opt.value = item.nome;
+      opt.textContent = item.nome;
+      sel.appendChild(opt);
+    });
+    if(current) sel.value = current;
+  }).catch(function(){});
+}
+
+function loadConfig() {
+  ['despesa','receita','centro','pagamento'].forEach(function(tipo) {
+    fetch('/api/config/'+tipo, {headers:{'Content-Type':'application/json'}})
+    .then(function(r){ return r.json(); })
+    .then(function(data) {
+      var el = document.getElementById('list-cat-'+tipo);
+      if(!data.length){ el.innerHTML = '<div style="font-size:12px;color:var(--hint);padding:8px">Nenhum cadastrado.</div>'; return; }
+      var html = '';
+      data.forEach(function(item) {
+        html += '<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border)">' +
+          '<div style="flex:1">' +
+          '<div style="font-size:13px;font-weight:500;color:'+(item.ativo?'var(--text)':'var(--hint)')+'">'+item.nome+'</div>' +
+          (item.descricao?'<div style="font-size:11px;color:var(--muted)">'+item.descricao+'</div>':'') +
+          '</div>' +
+          '<span style="font-size:10px;padding:2px 7px;border-radius:999px;background:'+(item.ativo?'var(--green-bg)':'#f3f4f6')+';color:'+(item.ativo?'var(--green)':'var(--hint)')+'">'+( item.ativo?'Ativo':'Inativo')+'</span>' +
+          '<button class="btn sm" onclick="editConfigItem(''+tipo+'','+item.id+',''+item.nome.replace("'","\'")+'',' +'''+( item.descricao||'').replace("'","\'")+'','+item.ativo+','+item.ordem+')">Editar</button>' +
+          '<button class="btn sm danger" onclick="delConfigItem(''+tipo+'','+item.id+')">&#10005;</button>' +
+          '</div>';
+      });
+      el.innerHTML = html;
+    });
+  });
+}
+
+function addConfigItem(tipo) {
+  var nome = prompt('Nome da categoria:');
+  if(!nome || !nome.trim()) return;
+  var desc = prompt('Descrição (opcional):') || '';
+  fetch('/api/config/'+tipo, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({nome:nome.trim(), descricao:desc, ativo:1, ordem:0})})
+  .then(function(res){ if(res.ok){ loadConfig(); } else { alert('Erro: nome já existe.'); } });
+}
+
+function editConfigItem(tipo, id, nome, desc, ativo, ordem) {
+  var novoNome = prompt('Nome:', nome);
+  if(novoNome === null) return;
+  var novaDesc = prompt('Descrição:', desc);
+  if(novaDesc === null) return;
+  var novoAtivo = confirm('Ativo? (OK = Sim, Cancelar = Inativo)') ? 1 : 0;
+  fetch('/api/config/'+tipo+'/'+id, {method:'PATCH', headers:{'Content-Type':'application/json'}, body:JSON.stringify({nome:novoNome, descricao:novaDesc, ativo:novoAtivo, ordem:ordem})})
+  .then(function(){ loadConfig(); });
+}
+
+function delConfigItem(tipo, id) {
+  if(!confirm('Excluir este item?')) return;
+  fetch('/api/config/'+tipo+'/'+id, {method:'DELETE', headers:{'Content-Type':'application/json'}})
+  .then(function(){ loadConfig(); });
 }
 
 function uploadComprovante(id,tipo){
