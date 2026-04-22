@@ -368,13 +368,32 @@ def migrate2():
 
 @app.get("/api/setup")
 def setup():
+    import os
     conn = get_db()
-    conn.execute("DELETE FROM usuarios")
-    conn.execute("INSERT INTO usuarios (nome,email,senha_hash,perfil) VALUES (?,?,?,?)",
-        ("Alexandre Serra","alexandreserrarj@gmail.com",hash_senha("R@fa2503"),"admin"))
-    conn.commit()
+    
+    # Detecta se é PostgreSQL ou SQLite
+    if os.getenv('DATABASE_URL'):
+        # PostgreSQL
+        cur = conn.cursor()
+        cur.execute("DELETE FROM usuarios WHERE email = 'alexandreserrarj@gmail.com'")
+        cur.execute(
+            "INSERT INTO usuarios (nome, email, senha_hash, perfil) VALUES (%s, %s, %s, %s)",
+            ("Alexandre Serra", "alexandreserrarj@gmail.com", hash_senha("R@fa2503"), "admin")
+        )
+        conn.commit()
+        cur.close()
+    else:
+        # SQLite
+        conn.execute("DELETE FROM usuarios WHERE email = 'alexandreserrarj@gmail.com'")
+        conn.execute(
+            "INSERT INTO usuarios (nome, email, senha_hash, perfil) VALUES (?, ?, ?, ?)",
+            ("Alexandre Serra", "alexandreserrarj@gmail.com", hash_senha("R@fa2503"), "admin")
+        )
+        conn.commit()
+    
     conn.close()
     return {"ok": True, "msg": "Admin recriado! Login: alexandreserrarj@gmail.com Senha: R@fa2503"}
+
 
 @app.get("/api/emergency-reset-xk9")
 def emergency_reset():
