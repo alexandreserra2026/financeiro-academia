@@ -17,7 +17,16 @@ def hash_senha(senha):
     import bcrypt
     return bcrypt.hashpw(senha.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
 def init_db():
+    import os
     conn = get_db()
+    
+    # Se for PostgreSQL, usa a função específica
+    if os.getenv('DATABASE_URL'):
+        init_postgres_tables(conn)
+        conn.close()
+        return
+    
+    # SQLite (local)
     conn.executescript("""
         CREATE TABLE IF NOT EXISTS usuarios (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -58,25 +67,6 @@ def init_db():
     if cur.fetchone()[0] == 0:
         conn.execute("INSERT INTO usuarios (nome,email,senha_hash,perfil) VALUES (?,?,?,?)",
             ("Administrador","admin@academia.com",hash_senha("admin123"),"admin"))
-    cur2 = conn.execute("SELECT COUNT(*) FROM contas_pagar")
-    if cur2.fetchone()[0] == 0:
-        mes = datetime.date.today().strftime("%Y-%m")
-        conn.executemany("INSERT INTO contas_pagar (desc,categoria,valor,vencimento,status,restrita) VALUES (?,?,?,?,?,?)",[
-            ("Aluguel do espaço","Aluguel",4500,f"{mes}-30","aberto",0),
-            ("Conta de energia","Energia",830,f"{mes}-22","aberto",0),
-            ("Salários equipe","Salários",8200,f"{mes}-30","aberto",0),
-            ("Manutenção equipamentos","Manutenção",650,f"{mes}-15","pago",0),
-            ("Pró-labore sócio","Pró-labore",5000,f"{mes}-30","aberto",1),
-            ("Retirada pessoal","Retirada",2000,f"{mes}-20","aberto",1),
-            ("Simples Nacional","Impostos",980,f"{mes}-25","aberto",0),
-        ])
-        conn.executemany("INSERT INTO contas_receber (desc,categoria,valor,vencimento,status,restrita) VALUES (?,?,?,?,?,?)",[
-            ("Mensalidades lote 1","Mensalidade",5400,f"{mes}-10","recebido",0),
-            ("Mensalidades lote 2","Mensalidade",3600,f"{mes}-15","recebido",0),
-            ("Mensalidades lote 3","Mensalidade",2700,f"{mes}-25","aberto",0),
-            ("Personal trainer","Serviço avulso",1800,f"{mes}-28","aberto",0),
-            ("Venda suplementos","Venda",420,f"{mes}-18","recebido",0),
-        ])
     conn.commit()
     conn.close()
 
