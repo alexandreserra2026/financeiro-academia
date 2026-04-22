@@ -382,29 +382,33 @@ def migrate2():
 def setup():
     import os
     conn = get_db()
+    senha_hash = hash_senha("R@fa2503")
     
-    # Detecta se é PostgreSQL ou SQLite
-    if os.getenv('DATABASE_URL'):
-        # PostgreSQL
-        cur = conn.cursor()
-        cur.execute("DELETE FROM usuarios WHERE email = 'alexandreserrarj@gmail.com'")
-        cur.execute(
-            "INSERT INTO usuarios (nome, email, senha_hash, perfil) VALUES (%s, %s, %s, %s)",
-            ("Alexandre Serra", "alexandreserrarj@gmail.com", hash_senha("R@fa2503"), "admin")
-        )
-        conn.commit()
-        cur.close()
-    else:
-        # SQLite
-        conn.execute("DELETE FROM usuarios WHERE email = 'alexandreserrarj@gmail.com'")
-        conn.execute(
-            "INSERT INTO usuarios (nome, email, senha_hash, perfil) VALUES (?, ?, ?, ?)",
-            ("Alexandre Serra", "alexandreserrarj@gmail.com", hash_senha("R@fa2503"), "admin")
-        )
-        conn.commit()
-    
-    conn.close()
-    return {"ok": True, "msg": "Admin recriado! Login: alexandreserrarj@gmail.com Senha: R@fa2503"}
+    try:
+        # Detecta se é PostgreSQL ou SQLite
+        if os.getenv('DATABASE_URL'):
+            # PostgreSQL
+            with conn.cursor() as cur:
+                cur.execute("DELETE FROM usuarios WHERE email = %s", ("alexandreserrarj@gmail.com",))
+                cur.execute(
+                    "INSERT INTO usuarios (nome, email, senha_hash, perfil) VALUES (%s, %s, %s, %s)",
+                    ("Alexandre Serra", "alexandreserrarj@gmail.com", senha_hash, "admin")
+                )
+            conn.commit()
+        else:
+            # SQLite
+            conn.execute("DELETE FROM usuarios WHERE email = ?", ("alexandreserrarj@gmail.com",))
+            conn.execute(
+                "INSERT INTO usuarios (nome, email, senha_hash, perfil) VALUES (?, ?, ?, ?)",
+                ("Alexandre Serra", "alexandreserrarj@gmail.com", senha_hash, "admin")
+            )
+            conn.commit()
+        
+        conn.close()
+        return {"ok": True, "msg": "Admin recriado! Login: alexandreserrarj@gmail.com Senha: R@fa2503"}
+    except Exception as e:
+        conn.close()
+        return {"ok": False, "erro": str(e)}
 
 
 @app.get("/api/emergency-reset-xk9")
