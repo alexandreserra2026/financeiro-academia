@@ -88,7 +88,7 @@ def get_usuario(request: Request):
     if not token:
         raise HTTPException(401,"Não autenticado")
     conn = get_db()
-    agora = datetime.datetime.now().isoformat()
+    agora = datetime.now().isoformat()
     row = conn.execute(
         "SELECT u.* FROM sessoes s JOIN usuarios u ON u.id=s.usuario_id WHERE s.token=? AND s.expira_em>? AND u.ativo=1",
         (token,agora)).fetchone()
@@ -147,7 +147,7 @@ def login(data: LoginIn):
         conn.close()
         raise HTTPException(401,"E-mail ou senha incorretos")
     token = secrets.token_hex(32)
-    expira = (datetime.datetime.now()+datetime.timedelta(hours=12)).isoformat()
+    expira = (datetime.now()+timedelta(hours=12)).isoformat()
     conn.execute("INSERT INTO sessoes (token,usuario_id,expira_em) VALUES (?,?,?)",(token,user["id"],expira))
     conn.commit()
     conn.close()
@@ -305,7 +305,7 @@ def deletar_receber(id: int, admin=Depends(requer_admin)):
 def resumo(usuario=Depends(get_usuario)):
     conn = get_db()
     hoje = datetime.date.today().isoformat()
-    em7 = (datetime.date.today()+datetime.timedelta(days=7)).isoformat()
+    em7 = (datetime.date.today()+timedelta(days=7)).isoformat()
     fr = " AND restrita=0" if not ve_restritas(usuario) else ""
     a_pagar=conn.execute(f"SELECT COALESCE(SUM(valor),0) FROM contas_pagar WHERE status!='pago'{fr}").fetchone()[0]
     a_receber=conn.execute(f"SELECT COALESCE(SUM(valor),0) FROM contas_receber WHERE status!='recebido'{fr}").fetchone()[0]
@@ -482,7 +482,7 @@ from reportlab.lib.enums import TA_CENTER, TA_RIGHT
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment
 from io import BytesIO
-from datetime import datetime
+from datetime from datetime import datetime, timedelta
 
 @app.get("/api/relatorios")
 def gerar_relatorio(
@@ -878,7 +878,7 @@ def gerar_relatorio(
                      (f"Margem Líquida",f"{margem}%","")]
             tabelas = [("DRE",["Item","Valor","Obs"],rows,None)]
         elif tipo_rel == "inadimplencia":
-            import datetime as dt
+            from datetime import datetime, timedelta as dt
             hoje = dt.date.today()
             headers = ["Descrição","Categoria","Valor","Vencimento","Dias Atraso"]
             rows = [(r["desc"],r["categoria"],fmtR_str(r["valor"]),fmtD(r["vencimento"]),(hoje-dt.date.fromisoformat(r["vencimento"])).days) for r in pagar_rows]
