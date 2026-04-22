@@ -137,15 +137,7 @@
         dataInicio.value = umMesAtras.toISOString().split('T')[0];
       }
     }
-    
-    // Chamar quando a seção de relatórios for aberta
-    const originalShowSection = showSection;
-    showSection = function(sectionId) {
-      originalShowSection(sectionId);
-      if (sectionId === 'relatorios') {
-        setTimeout(initRelatoriosDates, 100);
-      }
-    };
+
 
   
     
@@ -1528,15 +1520,7 @@ fetch('/api/me').then(function(r){
         dataInicio.value = umMesAtras.toISOString().split('T')[0];
       }
     }
-    
-    // Chamar quando a seção de relatórios for aberta
-    const originalShowSection = showSection;
-    showSection = function(sectionId) {
-      originalShowSection(sectionId);
-      if (sectionId === 'relatorios') {
-        setTimeout(initRelatoriosDates, 100);
-      }
-    };
+
 
   
     
