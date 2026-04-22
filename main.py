@@ -1,3 +1,4 @@
+from database import get_db_connection, init_postgres_tables
 from fastapi import FastAPI, HTTPException, Depends, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
