@@ -4,7 +4,86 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>Dashboard — Body Fitness Finance</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js">
+    
+    async function carregarDRE() {
+      const mes = document.getElementById('dreMes').value;
+      const ano = document.getElementById('dreAno').value;
+      
+      try {
+        const resp = await fetch(`/api/dre?mes=${mes}&ano=${ano}`);
+        const dre = await resp.json();
+        
+        // Receitas
+        let receitasHtml = '';
+        for (let cat in dre.receitas_por_categoria) {
+          receitasHtml += `<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #e9ecef">
+            <span style="color:#555">${cat}</span>
+            <span style="font-weight:600">R$ ${dre.receitas_por_categoria[cat].toLocaleString('pt-BR', {minimumFractionDigits:2})}</span>
+          </div>`;
+        }
+        document.getElementById('dreReceitas').innerHTML = receitasHtml;
+        document.getElementById('dreTotalReceitas').textContent = 
+          'R$ ' + dre.total_receitas.toLocaleString('pt-BR', {minimumFractionDigits:2});
+        
+        // Despesas
+        let despesasHtml = '';
+        for (let cat in dre.despesas_por_categoria) {
+          despesasHtml += `<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #e9ecef">
+            <span style="color:#555">${cat}</span>
+            <span style="font-weight:600">R$ ${dre.despesas_por_categoria[cat].toLocaleString('pt-BR', {minimumFractionDigits:2})}</span>
+          </div>`;
+        }
+        document.getElementById('dreDespesas').innerHTML = despesasHtml;
+        document.getElementById('dreTotalDespesas').textContent = 
+          'R$ ' + dre.total_despesas.toLocaleString('pt-BR', {minimumFractionDigits:2});
+        
+        // Resultado
+        const resultado = dre.total_receitas - dre.total_despesas;
+        const margem = dre.total_receitas > 0 ? ((resultado / dre.total_receitas) * 100).toFixed(1) : 0;
+        
+        document.getElementById('dreResultado').textContent = 
+          'R$ ' + resultado.toLocaleString('pt-BR', {minimumFractionDigits:2});
+        document.getElementById('dreResultado').style.color = resultado >= 0 ? '#27AE60' : '#E74C3C';
+        document.getElementById('dreMargem').textContent = margem + '%';
+        
+        // Gráfico comparativo
+        const ctx = document.getElementById('dreChart');
+        if (window.dreChartInstance) window.dreChartInstance.destroy();
+        
+        window.dreChartInstance = new Chart(ctx, {
+          type: 'bar',
+          data: {
+            labels: dre.comparativo_meses || ['Jan', 'Fev', 'Mar', 'Abr'],
+            datasets: [{
+              label: 'Receitas',
+              data: dre.comparativo_receitas || [38500, 42300, 40100, 45280],
+              backgroundColor: '#27AE60'
+            }, {
+              label: 'Despesas',
+              data: dre.comparativo_despesas || [33800, 35200, 33900, 32150],
+              backgroundColor: '#E74C3C'
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+              legend: { position: 'top' }
+            }
+          }
+        });
+        
+      } catch (err) {
+        alert('Erro ao carregar DRE: ' + err.message);
+      }
+    }
+    
+    function exportarDRE() {
+      alert('Funcionalidade de exportação PDF será implementada em breve!');
+    }
+
+  </script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{--bg:#f0f4f0;--surface:#fff;--border:#e0e8e0;--text:#1a1a1a;--muted:#666;--hint:#999;
@@ -1195,6 +1274,85 @@ fetch('/api/me').then(function(r){
   if(r.ok)return r.json().then(function(d){ME=d;showApp();});
   else showLogin();
 }).catch(function(){showLogin();});
-</script>
+
+    
+    async function carregarDRE() {
+      const mes = document.getElementById('dreMes').value;
+      const ano = document.getElementById('dreAno').value;
+      
+      try {
+        const resp = await fetch(`/api/dre?mes=${mes}&ano=${ano}`);
+        const dre = await resp.json();
+        
+        // Receitas
+        let receitasHtml = '';
+        for (let cat in dre.receitas_por_categoria) {
+          receitasHtml += `<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #e9ecef">
+            <span style="color:#555">${cat}</span>
+            <span style="font-weight:600">R$ ${dre.receitas_por_categoria[cat].toLocaleString('pt-BR', {minimumFractionDigits:2})}</span>
+          </div>`;
+        }
+        document.getElementById('dreReceitas').innerHTML = receitasHtml;
+        document.getElementById('dreTotalReceitas').textContent = 
+          'R$ ' + dre.total_receitas.toLocaleString('pt-BR', {minimumFractionDigits:2});
+        
+        // Despesas
+        let despesasHtml = '';
+        for (let cat in dre.despesas_por_categoria) {
+          despesasHtml += `<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #e9ecef">
+            <span style="color:#555">${cat}</span>
+            <span style="font-weight:600">R$ ${dre.despesas_por_categoria[cat].toLocaleString('pt-BR', {minimumFractionDigits:2})}</span>
+          </div>`;
+        }
+        document.getElementById('dreDespesas').innerHTML = despesasHtml;
+        document.getElementById('dreTotalDespesas').textContent = 
+          'R$ ' + dre.total_despesas.toLocaleString('pt-BR', {minimumFractionDigits:2});
+        
+        // Resultado
+        const resultado = dre.total_receitas - dre.total_despesas;
+        const margem = dre.total_receitas > 0 ? ((resultado / dre.total_receitas) * 100).toFixed(1) : 0;
+        
+        document.getElementById('dreResultado').textContent = 
+          'R$ ' + resultado.toLocaleString('pt-BR', {minimumFractionDigits:2});
+        document.getElementById('dreResultado').style.color = resultado >= 0 ? '#27AE60' : '#E74C3C';
+        document.getElementById('dreMargem').textContent = margem + '%';
+        
+        // Gráfico comparativo
+        const ctx = document.getElementById('dreChart');
+        if (window.dreChartInstance) window.dreChartInstance.destroy();
+        
+        window.dreChartInstance = new Chart(ctx, {
+          type: 'bar',
+          data: {
+            labels: dre.comparativo_meses || ['Jan', 'Fev', 'Mar', 'Abr'],
+            datasets: [{
+              label: 'Receitas',
+              data: dre.comparativo_receitas || [38500, 42300, 40100, 45280],
+              backgroundColor: '#27AE60'
+            }, {
+              label: 'Despesas',
+              data: dre.comparativo_despesas || [33800, 35200, 33900, 32150],
+              backgroundColor: '#E74C3C'
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+              legend: { position: 'top' }
+            }
+          }
+        });
+        
+      } catch (err) {
+        alert('Erro ao carregar DRE: ' + err.message);
+      }
+    }
+    
+    function exportarDRE() {
+      alert('Funcionalidade de exportação PDF será implementada em breve!');
+    }
+
+  </script>
 </body>
 </html>

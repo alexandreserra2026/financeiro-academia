@@ -389,6 +389,89 @@ def emergency_reset():
     conn.close()
     return {"ok": True, "msg": "Admin resetado!"}
 
+
+@app.get("/api/dre")
+def get_dre(mes: int = 4, ano: int = 2026, user=Depends(get_current_user)):
+    conn = get_db()
+    cur = conn.cursor()
+    
+    # Receitas por categoria
+    cur.execute("""
+        SELECT categoria, SUM(valor) as total 
+        FROM contas_receber 
+        WHERE strftime('%m', vencimento) = ? AND strftime('%Y', vencimento) = ?
+        AND status = 'recebido'
+        GROUP BY categoria
+    """, (f"{mes:02d}", str(ano)))
+    
+    receitas_por_cat = {}
+    total_receitas = 0
+    for row in cur.fetchall():
+        cat = row[0] or 'Sem categoria'
+        valor = float(row[1])
+        receitas_por_cat[cat] = valor
+        total_receitas += valor
+    
+    # Despesas por categoria
+    cur.execute("""
+        SELECT categoria, SUM(valor) as total 
+        FROM contas_pagar 
+        WHERE strftime('%m', vencimento) = ? AND strftime('%Y', vencimento) = ?
+        AND status = 'pago'
+        GROUP BY categoria
+    """, (f"{mes:02d}", str(ano)))
+    
+    despesas_por_cat = {}
+    total_despesas = 0
+    for row in cur.fetchall():
+        cat = row[0] or 'Sem categoria'
+        valor = float(row[1])
+        despesas_por_cat[cat] = valor
+        total_despesas += valor
+    
+    # Comparativo últimos 4 meses
+    meses_labels = []
+    comp_receitas = []
+    comp_despesas = []
+    
+    for i in range(3, -1, -1):
+        m = mes - i
+        a = ano
+        if m <= 0:
+            m += 12
+            a -= 1
+        
+        meses_labels.append(['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'][m-1])
+        
+        # Receitas do mês
+        cur.execute("""
+            SELECT COALESCE(SUM(valor), 0) FROM contas_receber 
+            WHERE strftime('%m', vencimento) = ? AND strftime('%Y', vencimento) = ?
+            AND status = 'recebido'
+        """, (f"{m:02d}", str(a)))
+        comp_receitas.append(float(cur.fetchone()[0]))
+        
+        # Despesas do mês
+        cur.execute("""
+            SELECT COALESCE(SUM(valor), 0) FROM contas_pagar 
+            WHERE strftime('%m', vencimento) = ? AND strftime('%Y', vencimento) = ?
+            AND status = 'pago'
+        """, (f"{m:02d}", str(a)))
+        comp_despesas.append(float(cur.fetchone()[0]))
+    
+    conn.close()
+    
+    return {
+        "receitas_por_categoria": receitas_por_cat,
+        "total_receitas": total_receitas,
+        "despesas_por_categoria": despesas_por_cat,
+        "total_despesas": total_despesas,
+        "comparativo_meses": meses_labels,
+        "comparativo_receitas": comp_receitas,
+        "comparativo_despesas": comp_despesas
+    }
+
+
 app.mount("/static",StaticFiles(directory="static"),name="static")
 
 @app.get("/{full_path:path}")
