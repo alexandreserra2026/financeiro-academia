@@ -461,16 +461,7 @@ def setup():
     
     try:
         # Detecta se é PostgreSQL ou SQLite
-        if os.getenv('DATABASE_URL'):
-            # PostgreSQL
-            cur = conn.cursor()
-            cur.execute("DELETE FROM usuarios WHERE email = %s", ("alexandreserrarj@gmail.com",))
-            cur.execute(
-                "INSERT INTO usuarios (nome, email, senha_hash, perfil) VALUES (%s, %s, %s, %s)",
-                ("Alexandre Serra", "alexandreserrarj@gmail.com", senha_hash, "admin")
-            )
-            cur.close()
-            conn.commit()
+        cur.execute("DELETE FROM sessoes WHERE usuario_id IN (SELECT id FROM usuarios WHERE email = %s)", ("alexandreserrarj@gmail.com",))
         else:
             # SQLite
             execute_query(conn, "DELETE FROM usuarios WHERE email = ?", ("alexandreserrarj@gmail.com",))
