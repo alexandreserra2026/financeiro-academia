@@ -140,12 +140,23 @@ class StatusUpdate(BaseModel):
 
 @app.post("/api/login")
 def login(data: LoginIn):
+    import os
     conn = get_db()
-    user = conn.execute("SELECT * FROM usuarios WHERE email=? AND senha_hash=? AND ativo=1",
-        (data.email,hash_senha(data.senha))).fetchone()
+    senha_hash = hash_senha(data.senha)
+    
+    # PostgreSQL usa %s, SQLite usa ?
+    if os.getenv('DATABASE_URL'):
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM usuarios WHERE email=%s AND senha_hash=%s AND ativo=1",
+            (data.email, senha_hash))
+        user = cur.fetchone()
+    else:
+        user = conn.execute("SELECT * FROM usuarios WHERE email=? AND senha_hash=? AND ativo=1",
+            (data.email, senha_hash)).fetchone()
+    
     if not user:
         conn.close()
-        raise HTTPException(401,"E-mail ou senha incorretos")
+        raise HTTPException(401, "E-mail ou senha incorretos")
     token = secrets.token_hex(32)
     expira = (datetime.now()+timedelta(hours=12)).isoformat()
     conn.execute("INSERT INTO sessoes (token,usuario_id,expira_em) VALUES (?,?,?)",(token,user["id"],expira))
