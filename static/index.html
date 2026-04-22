@@ -1114,7 +1114,7 @@ function toggleDatas(){ document.getElementById('datas-rel').style.display=docum
 function gerarRel(){
   var tipo=document.getElementById('rel-tipo').value, periodo=document.getElementById('rel-periodo').value;
   var formato=document.getElementById('rel-formato').value, ini=document.getElementById('rel-ini').value, fim=document.getElementById('rel-fim').value;
-  var url='/api/relatorio/'+tipo+'?formato='+formato+'&periodo='+periodo;
+  var url='/api/relatorios?tipo='+tipo+'?formato='+formato+'&periodo='+periodo;
   if(periodo==='personalizado'&&ini&&fim)url+='&data_ini='+ini+'&data_fim='+fim;
   if(formato==='pdf')window.open(url,'_blank');
   else{var a=document.createElement('a');a.href=url;a.click();}
@@ -1122,7 +1122,7 @@ function gerarRel(){
 function previewRel(){
   var tipo=document.getElementById('rel-tipo').value, periodo=document.getElementById('rel-periodo').value;
   var ini=document.getElementById('rel-ini').value, fim=document.getElementById('rel-fim').value;
-  var url='/api/relatorio/'+tipo+'?formato=pdf&periodo='+periodo;
+  var url='/api/relatorios?tipo='+tipo+'?formato=pdf&periodo='+periodo;
   if(periodo==='personalizado'&&ini&&fim)url+='&data_ini='+ini+'&data_fim='+fim;
   window.open(url,'_blank');
 }
