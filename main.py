@@ -482,7 +482,7 @@ from reportlab.lib.enums import TA_CENTER, TA_RIGHT
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment
 from io import BytesIO
-from datetime from datetime import datetime, timedelta
+from datetime import datetime, timedelta
 
 @app.get("/api/relatorios")
 def gerar_relatorio(
