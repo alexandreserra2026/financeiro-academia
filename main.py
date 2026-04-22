@@ -360,7 +360,32 @@ def resumo(usuario=Depends(get_usuario)):
         "pago_mes":pago_mes,"recebido_mes":recebido_mes,
         "venc7_pagar":venc7_p,"venc7_receber":venc7_r,"vencidos_pagar":vencidos_p,
         "proximos_vencimentos":sorted(prox,key=lambda x:x["vencimento"])}
-
+@app.get("/api/dashboard")
+def get_dashboard():
+    import os
+    conn = get_db()
+    
+    # Totais do mês atual
+    if os.getenv('DATABASE_URL'):
+        cur = conn.cursor()
+        cur.execute("SELECT COALESCE(SUM(valor), 0) FROM contas_receber WHERE status = 'recebido'")
+        total_receitas = float(cur.fetchone()[0])
+        cur.execute("SELECT COALESCE(SUM(valor), 0) FROM contas_pagar WHERE status = 'pago'")
+        total_despesas = float(cur.fetchone()[0])
+    else:
+        cur = conn.execute("SELECT COALESCE(SUM(valor), 0) FROM contas_receber WHERE status = 'recebido'")
+        total_receitas = float(cur.fetchone()[0])
+        cur = conn.execute("SELECT COALESCE(SUM(valor), 0) FROM contas_pagar WHERE status = 'pago'")
+        total_despesas = float(cur.fetchone()[0])
+    
+    conn.close()
+    
+    return {
+        "total_receitas": total_receitas,
+        "total_despesas": total_despesas,
+        "saldo": total_receitas - total_despesas
+    }
+    
 @app.get("/api/dre")
 def dre(usuario=Depends(get_usuario)):
     conn = get_db()
