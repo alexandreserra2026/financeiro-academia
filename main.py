@@ -482,9 +482,9 @@ def emergency_reset():
     if execute_query(conn, "SELECT COUNT(*) FROM usuarios WHERE email='alexandreserrarj@gmail.com'").fetchone()[0] == 0:
         execute_query(conn, "INSERT INTO usuarios (nome,email,senha_hash,perfil) VALUES (?,?,?,?)",
             ("Alexandre Serra","alexandreserrarj@gmail.com",hash_senha("R@fa2503"),"admin"))
-    else:
-        conn.execute("UPDATE usuarios SET senha_hash=?,perfil='admin',ativo=1 WHERE email='alexandreserrarj@gmail.com'",
-            (hash_senha("R@fa2503"),))
+   else:
+        execute_query(conn, "UPDATE usuarios SET senha_hash=?,perfil='admin',ativo=1 WHERE email='alexandreserrarj@gmail.com'",
+                      (hash_senha("R@fa2503"),))
     conn.commit()
     conn.close()
     return {"ok": True, "msg": "Admin resetado!"}
