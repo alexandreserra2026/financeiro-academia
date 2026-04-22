@@ -14,7 +14,7 @@ def get_db_connection():
         
         conn = psycopg2.connect(database_url)
         return conn, 'postgres'
-        else:
+       else:
         # Local: SQLite
         import sqlite3
         conn = sqlite3.connect('financeiro.db', check_same_thread=False)
