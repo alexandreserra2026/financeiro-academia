@@ -809,7 +809,7 @@ function showToast(id, msg, type) {
 
 function loadDash() {
   Promise.all([
-    api('/api/resumo').then(function(r){ return r ? r.json() : null; }),
+    api('/api/dashboard').then(function(r){ return r ? r.json() : null; }),
     api('/api/pagar').then(function(r){ return r ? r.json() : null; }),
     api('/api/receber').then(function(r){ return r ? r.json() : null; }),
     api('/api/dre').then(function(r){ return r ? r.json() : null; })
@@ -1327,7 +1327,7 @@ function sendChat(){
   var tp=document.createElement('div'); tp.className='msg ag';
   tp.innerHTML='<span class="dot"></span><span class="dot"></span><span class="dot"></span>';
   msgs.appendChild(tp); msgs.scrollTop=msgs.scrollHeight;
-  Promise.all([api('/api/resumo').then(function(r){return r.json();}),api('/api/dre').then(function(r){return r.json();})]).then(function(results){
+  Promise.all([api('/api/dashboard').then(function(r){return r.json();}),api('/api/dre').then(function(r){return r.json();})]).then(function(results){
     var resumo=results[0], dre=results[1];
     var ctx='Você é o agente financeiro de uma academia. A pagar: R$'+resumo.a_pagar.toFixed(2)+', a receber: R$'+resumo.a_receber.toFixed(2)+', saldo: R$'+resumo.saldo_previsto.toFixed(2)+'. Receita: R$'+dre.receita_bruta.toFixed(2)+', resultado: R$'+dre.resultado.toFixed(2)+', margem: '+dre.margem+'%. Vencidos: '+resumo.vencidos_pagar+'. Responda em português de forma direta e objetiva.';
     fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,system:ctx,messages:[{role:'user',content:msg}]})})
