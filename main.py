@@ -116,8 +116,16 @@ def get_usuario(request: Request):
     conn = get_db()
     agora = datetime.now().isoformat()
     row = conn.execute(
+cur = execute_query(conn,
         "SELECT u.* FROM sessoes s JOIN usuarios u ON u.id=s.usuario_id WHERE s.token=? AND s.expira_em>? AND u.ativo=1",
-        (token,agora)).fetchone()
+        (token, agora))
+    row = cur.fetchone()
+    
+    if os.getenv('DATABASE_URL'):
+        # PostgreSQL - converte tupla para dict
+        if row:
+            columns = [desc[0] for desc in cur.description]
+            row = dict(zip(columns, row))
     conn.close()
     if not row:
         raise HTTPException(401,"Sessão inválida")
