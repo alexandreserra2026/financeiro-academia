@@ -869,77 +869,40 @@ function loadConfig() {
       var el = document.getElementById('list-cat-'+tipo);
       if(!el) return;
       if(!items.length){ el.innerHTML = '<div style="font-size:12px;color:#999;padding:8px">Nenhum item.</div>'; return; }
-      var parts = [];
+      var h = '';
       for(var x=0; x<items.length; x++) {
         var it = items[x];
-        var row = '<div style="display:flex;align-items:center;gap:6px;padding:7px 0;border-bottom:1px solid #eee">';
-        row += '<div style="flex:1"><div style="font-size:13px;font-weight:500">' + it.nome + '</div>';
-        if(it.descricao) row += '<div style="font-size:11px;color:#888">' + it.descricao + '</div>';
-        row += '</div>';
-        row += '<span style="font-size:10px;padding:2px 6px;border-radius:999px;background:' + (it.ativo ? '#E1F5EE' : '#f3f4f6') + ';color:' + (it.ativo ? '#C0392B' : '#999') + '">' + (it.ativo ? 'Ativo' : 'Inativo') + '</span>';
-        var dataStr = encodeURIComponent(JSON.stringify({id:it.id,tipo:tipo,nome:it.nome,desc:it.descricao||'',ativo:it.ativo,ordem:it.ordem}));
-        row += '<button class="btn sm" onclick="editConfig(decodeURIComponent(' + "'" + dataStr + "'" + '))">Editar</button>';
-        row += '<button class="btn sm danger" onclick="delConfigItem(' + "'" + tipo + "'," + it.id + ')">&#10005;</button>';
-        row += '</div>';
-        parts.push(row);
+        var bg = it.ativo ? '#FDECEA' : '#f3f4f6';
+        var cl = it.ativo ? '#C0392B' : '#999';
+        var st = it.ativo ? 'Ativo' : 'Inativo';
+        h += '<div style="display:flex;align-items:center;gap:6px;padding:7px 0;border-bottom:1px solid #eee">';
+        h += '<div style="flex:1"><div style="font-size:13px;font-weight:500">'+it.nome+'</div>';
+        if(it.descricao) h += '<div style="font-size:11px;color:#888">'+it.descricao+'</div>';
+        h += '</div>';
+        h += '<span style="font-size:10px;padding:2px 6px;border-radius:999px;background:'+bg+';color:'+cl+'">'+st+'</span>';
+        h += '<button class="btn sm" data-tipo="'+tipo+'" data-id="'+it.id+'" data-nome="'+it.nome.replace(/"/g,'&quot;')+'" data-desc="'+(it.descricao||'').replace(/"/g,'&quot;')+'" data-ativo="'+it.ativo+'" data-ordem="'+it.ordem+'" onclick="editConfigBtn(this)">Editar</button>';
+        h += '<button class="btn sm danger" onclick="delConfigItem(''+tipo+'','+it.id+')">&#10005;</button>';
+        h += '</div>';
       }
-      el.innerHTML = parts.join('');
+      el.innerHTML = h;
     }).catch(function(e){ console.log('config error', tipo, e); });
   });
 }
 
-function editConfig(dataStr) {
-  var data = JSON.parse(dataStr);
-  var novoNome = prompt('Nome:', data.nome);
+function editConfigBtn(btn) {
+  var tipo = btn.getAttribute('data-tipo');
+  var id = btn.getAttribute('data-id');
+  var nome = btn.getAttribute('data-nome');
+  var desc = btn.getAttribute('data-desc');
+  var ativo = parseInt(btn.getAttribute('data-ativo'));
+  var ordem = parseInt(btn.getAttribute('data-ordem'));
+  var novoNome = prompt('Nome:', nome);
   if(novoNome === null) return;
-  var novaDesc = prompt('Descricao:', data.desc);
+  var novaDesc = prompt('Descricao:', desc);
   if(novaDesc === null) return;
-  var novoAtivo = confirm('Ativo? (OK=Sim)') ? 1 : 0;
-  fetch('/api/config/'+data.tipo+'/'+data.id, {method:'PATCH', headers:{'Content-Type':'application/json'}, body:JSON.stringify({nome:novoNome, descricao:novaDesc, ativo:novoAtivo, ordem:data.ordem})})
+  var novoAtivo = confirm('Ativo? (OK=Sim, Cancelar=Inativo)') ? 1 : 0;
+  fetch('/api/config/'+tipo+'/'+id, {method:'PATCH', headers:{'Content-Type':'application/json'}, body:JSON.stringify({nome:novoNome, descricao:novaDesc, ativo:novoAtivo, ordem:ordem})})
   .then(function(){ loadConfig(); });
-}
-
-
-function loadCatSelect(selectId, tipo) {
-  fetch('/api/config/'+tipo, {headers:{'Content-Type':'application/json'}})
-  .then(function(r){ return r.json(); })
-  .then(function(data) {
-    var sel = document.getElementById(selectId);
-    if(!sel) return;
-    var current = sel.value;
-    sel.innerHTML = '';
-    data.filter(function(d){ return d.ativo; }).forEach(function(item) {
-      var opt = document.createElement('option');
-      opt.value = item.nome;
-      opt.textContent = item.nome;
-      sel.appendChild(opt);
-    });
-    if(current) sel.value = current;
-  }).catch(function(){});
-}
-
-function loadConfig() {
-  ['despesa','receita','centro','pagamento'].forEach(function(tipo) {
-    fetch('/api/config/'+tipo, {headers:{'Content-Type':'application/json'}})
-    .then(function(r){ return r.json(); })
-    .then(function(data) {
-      var el = document.getElementById('list-cat-'+tipo);
-      if(!data.length){ el.innerHTML = '<div style="font-size:12px;color:var(--hint);padding:8px">Nenhum cadastrado.</div>'; return; }
-      var html = '';
-      data.forEach(function(item) {
-        html += '<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border)">' +
-          '<div style="flex:1">' +
-          '<div style="font-size:13px;font-weight:500;color:'+(item.ativo?'var(--text)':'var(--hint)')+'">'+item.nome+'</div>' +
-          (item.descricao?'<div style="font-size:11px;color:var(--muted)">'+item.descricao+'</div>':'') +
-          '</div>' +
-          '<span style="font-size:10px;padding:2px 7px;border-radius:999px;background:'+(item.ativo?'var(--green-bg)':'#f3f4f6')+';color:'+(item.ativo?'var(--green)':'var(--hint)')+'">'+( item.ativo?'Ativo':'Inativo')+'</span>' +
-          '<button class="btn sm" onclick="editConfigItem(''+tipo+'','+item.id+',''+item.nome.replace("'","\'")+'',' +'''+( item.descricao||'').replace("'","\'")+'','+item.ativo+','+item.ordem+')">Editar</button>' +
-          '<button class="btn sm danger" onclick="delConfigItem(''+tipo+'','+item.id+')">&#10005;</button>' +
-          '</div>';
-      });
-      el.innerHTML = html;
-    });
-  });
 }
 
 function addConfigItem(tipo) {
