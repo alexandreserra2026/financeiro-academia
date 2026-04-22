@@ -13,7 +13,7 @@ def get_db_connection():
             database_url = database_url.replace('postgres://', 'postgresql://', 1)
         
         conn = psycopg2.connect(database_url)
-        conn.row_factory = RealDictCursor
+        Remove incorrect row_factory assignment for psycopg2
         return conn, 'postgres'
     else:
         # Local: SQLite
