@@ -739,6 +739,21 @@ def gerar_excel(tipo, receitas, despesas, data_inicio, data_fim):
     )
 
 
+
+@app.get("/api/debug-admin")
+def debug_admin():
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("SELECT id, nome, email, perfil FROM usuarios WHERE email = 'alexandreserrarj@gmail.com'")
+    user = cur.fetchone()
+    conn.close()
+    
+    if user:
+        return {"existe": True, "dados": dict(user)}
+    else:
+        return {"existe": False, "msg": "Admin não encontrado"}
+
+
 app.mount("/static",StaticFiles(directory="static"),name="static")
 
 @app.get("/{full_path:path}")
