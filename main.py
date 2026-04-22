@@ -391,7 +391,7 @@ def emergency_reset():
 
 
 @app.get("/api/dre")
-def get_dre(mes: int = 4, ano: int = 2026, user=Depends(get_current_user)):
+def get_dre(mes: int = 4, ano: int = 2026):
     conn = get_db()
     cur = conn.cursor()
     
