@@ -478,16 +478,40 @@ def setup():
         return {"ok": False, "erro": str(e)}
 @app.get("/api/emergency-reset-xk9")
 def emergency_reset():
+    import os
     conn = get_db()
-    if execute_query(conn, "SELECT COUNT(*) FROM usuarios WHERE email='alexandreserrarj@gmail.com'").fetchone()[0] == 0:
-        execute_query(conn, "INSERT INTO usuarios (nome,email,senha_hash,perfil) VALUES (?,?,?,?)",
-            ("Alexandre Serra","alexandreserrarj@gmail.com",hash_senha("R@fa2503"),"admin"))
-   else:
-        execute_query(conn, "UPDATE usuarios SET senha_hash=?,perfil='admin',ativo=1 WHERE email='alexandreserrarj@gmail.com'",
-                      (hash_senha("R@fa2503"),))
-    conn.commit()
-    conn.close()
-    return {"ok": True, "msg": "Admin resetado!"}
+    senha_hash = hash_senha("R@fa2503")
+    
+    try:
+        if os.getenv('DATABASE_URL'):
+            # PostgreSQL
+            cur = conn.cursor()
+            cur.execute("SELECT COUNT(*) FROM usuarios WHERE email = %s", ("alexandreserrarj@gmail.com",))
+            count = cur.fetchone()[0]
+            
+            if count == 0:
+                cur.execute("INSERT INTO usuarios (nome, email, senha_hash, perfil) VALUES (%s, %s, %s, %s)",
+                    ("Alexandre Serra", "alexandreserrarj@gmail.com", senha_hash, "admin"))
+            else:
+                cur.execute("UPDATE usuarios SET senha_hash = %s, perfil = 'admin', ativo = 1 WHERE email = %s",
+                    (senha_hash, "alexandreserrarj@gmail.com"))
+            cur.close()
+            conn.commit()
+        else:
+            # SQLite
+            if execute_query(conn, "SELECT COUNT(*) FROM usuarios WHERE email = ?", ("alexandreserrarj@gmail.com",)).fetchone()[0] == 0:
+                execute_query(conn, "INSERT INTO usuarios (nome, email, senha_hash, perfil) VALUES (?, ?, ?, ?)",
+                    ("Alexandre Serra", "alexandreserrarj@gmail.com", senha_hash, "admin"))
+            else:
+                execute_query(conn, "UPDATE usuarios SET senha_hash = ?, perfil = 'admin', ativo = 1 WHERE email = ?",
+                    (senha_hash, "alexandreserrarj@gmail.com"))
+            conn.commit()
+        
+        conn.close()
+        return {"ok": True, "msg": "Admin resetado!"}
+    except Exception as e:
+        conn.close()
+        return {"ok": False, "erro": str(e)}
 
 
 @app.get("/api/dre")
