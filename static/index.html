@@ -881,7 +881,7 @@ function loadConfig() {
         h += '</div>';
         h += '<span style="font-size:10px;padding:2px 6px;border-radius:999px;background:'+bg+';color:'+cl+'">'+st+'</span>';
         h += '<button class="btn sm" data-tipo="'+tipo+'" data-id="'+it.id+'" data-nome="'+it.nome.replace(/"/g,'&quot;')+'" data-desc="'+(it.descricao||'').replace(/"/g,'&quot;')+'" data-ativo="'+it.ativo+'" data-ordem="'+it.ordem+'" onclick="editConfigBtn(this)">Editar</button>';
-        h += '<button class="btn sm danger" onclick="delConfigItem(''+tipo+'','+it.id+')">&#10005;</button>';
+        h += '<button class="btn sm danger" data-tipo="'+tipo+'" data-id="'+it.id+'" onclick="delConfigBtn(this)">&#10005;</button>';
         h += '</div>';
       }
       el.innerHTML = h;
@@ -902,6 +902,14 @@ function editConfigBtn(btn) {
   if(novaDesc === null) return;
   var novoAtivo = confirm('Ativo? (OK=Sim, Cancelar=Inativo)') ? 1 : 0;
   fetch('/api/config/'+tipo+'/'+id, {method:'PATCH', headers:{'Content-Type':'application/json'}, body:JSON.stringify({nome:novoNome, descricao:novaDesc, ativo:novoAtivo, ordem:ordem})})
+  .then(function(){ loadConfig(); });
+}
+
+function delConfigBtn(btn) {
+  var tipo = btn.getAttribute('data-tipo');
+  var id = btn.getAttribute('data-id');
+  if(!confirm('Excluir este item?')) return;
+  fetch('/api/config/'+tipo+'/'+id, {method:'DELETE', headers:{'Content-Type':'application/json'}})
   .then(function(){ loadConfig(); });
 }
 
