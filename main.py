@@ -353,7 +353,7 @@ def criar_receber(conta: ContaIn, usuario=Depends(pode_editar)):
         raise HTTPException(403,"Só admin pode criar contas restritas")
     conn = get_db()
     cur=execute_query(conn, "INSERT INTO contas_receber (descricao,categoria,valor,vencimento,status,restrita) VALUES (?,?,?,?,?,?)",
-        (conta.descricaoricao,conta.categoria,conta.valor,conta.vencimento,conta.status,conta.restrita or 0))
+        (conta.descricao,conta.categoria,conta.valor,conta.vencimento,conta.status,conta.restrita or 0))
     conn.commit()
     row=execute_query(conn, "SELECT * FROM contas_receber WHERE id=?",(cur.lastrowid,)).fetchone()
     conn.close()
