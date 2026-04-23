@@ -167,6 +167,13 @@ class ContaIn(BaseModel):
     vencimento: str
     status: Optional[str]="aberto"
     restrita: Optional[int]=0
+    comprovante: Optional[str]=None
+    observacao: Optional[str]=None
+    numero_doc: Optional[str]=None
+    centro_custo: Optional[str]=None
+    forma_pagamento: Optional[str]=None
+    data_pagamento: Optional[str]=None
+    recorrente: Optional[int]=0
 
 class StatusUpdate(BaseModel):
     status: str
