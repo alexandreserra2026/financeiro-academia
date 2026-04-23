@@ -654,38 +654,32 @@ def gerar_relatorio(
     tipo: str,
     formato: str,
     data_inicio: str,
-    data_fim: str,
-    tipo_conta: str = "ambos",
-    status: str = "todos"
+    data_fim: str
 ):
+    import os
     conn = get_db()
-    cur = conn.cursor()
     
-    # Buscar dados
+    # Buscar dados usando execute_query
     dados_receitas = []
     dados_despesas = []
     
-    if tipo_conta in ["ambos", "receber"]:
-        query = "SELECT * FROM contas_receber WHERE vencimento BETWEEN ? AND ?"
-        if status != "todos":
-            query += f" AND status = '{status if status == 'aberto' else 'recebido'}'"
-        cur.execute(query, (data_inicio, data_fim))
-        dados_receitas = [dict(row) for row in cur.fetchall()]
+    # Buscar receitas
+    receitas = fetchall_dict(conn, "SELECT * FROM contas_receber WHERE vencimento BETWEEN ? AND ?", (data_inicio, data_fim))
+    dados_receitas = [dict(r) for r in receitas]
     
-    if tipo_conta in ["ambos", "pagar"]:
-        query = "SELECT * FROM contas_pagar WHERE vencimento BETWEEN ? AND ?"
-        if status != "todos":
-            query += f" AND status = '{status if status == 'aberto' else 'pago'}'"
-        cur.execute(query, (data_inicio, data_fim))
-        dados_despesas = [dict(row) for row in cur.fetchall()]
+    # Buscar despesas
+    despesas = fetchall_dict(conn, "SELECT * FROM contas_pagar WHERE vencimento BETWEEN ? AND ?", (data_inicio, data_fim))
+    dados_despesas = [dict(d) for d in despesas]
     
     conn.close()
     
     # Gerar relatório
     if formato == "pdf":
         return gerar_pdf(tipo, dados_receitas, dados_despesas, data_inicio, data_fim)
-    else:
+    elif formato == "xlsx":
         return gerar_excel(tipo, dados_receitas, dados_despesas, data_inicio, data_fim)
+    else:
+        raise HTTPException(400, "Formato inválido")
 
 def gerar_pdf(tipo, receitas, despesas, data_inicio, data_fim):
     from fastapi.responses import StreamingResponse
