@@ -43,7 +43,7 @@ def fetchall_dict(conn, query, params=None):
         rows = cur.fetchall()
         if not rows:
             return []
-        columns = [desc[0] for desc in cur.description]
+        columns = [desc[0] for descricao in cur.description]
         return [dict(zip(columns, row)) for row in rows]
     else:
         # SQLite - já retorna dicts com row_factory
@@ -81,7 +81,7 @@ def init_db():
         );
         CREATE TABLE IF NOT EXISTS contas_pagar (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            desc TEXT NOT NULL,
+            descricao TEXT NOT NULL,
             categoria TEXT NOT NULL,
             valor REAL NOT NULL,
             vencimento TEXT NOT NULL,
@@ -91,7 +91,7 @@ def init_db():
         );
         CREATE TABLE IF NOT EXISTS contas_receber (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            desc TEXT NOT NULL,
+            descricao TEXT NOT NULL,
             categoria TEXT NOT NULL,
             valor REAL NOT NULL,
             vencimento TEXT NOT NULL,
@@ -124,7 +124,7 @@ def get_usuario(request: Request):
     if os.getenv('DATABASE_URL'):
         # PostgreSQL - converte tupla para dict
         if row:
-            columns = [desc[0] for desc in cur.description]
+            columns = [desc[0] for descricao in cur.description]
             row = dict(zip(columns, row))
     conn.close()
     if not row:
@@ -302,8 +302,8 @@ def criar_pagar(conta: ContaIn, usuario=Depends(pode_editar)):
     if conta.restrita and usuario["perfil"]!="admin":
         raise HTTPException(403,"Só admin pode criar contas restritas")
     conn = get_db()
-    cur=execute_query(conn, "INSERT INTO contas_pagar (desc,categoria,valor,vencimento,status,restrita) VALUES (?,?,?,?,?,?)",
-        (conta.desc,conta.categoria,conta.valor,conta.vencimento,conta.status,conta.restrita or 0))
+    cur=execute_query(conn, "INSERT INTO contas_pagar (descricao,categoria,valor,vencimento,status,restrita) VALUES (?,?,?,?,?,?)",
+        (conta.descricaoricao,conta.categoria,conta.valor,conta.vencimento,conta.status,conta.restrita or 0))
     conn.commit()
     row=execute_query(conn, "SELECT * FROM contas_pagar WHERE id=?",(cur.lastrowid,)).fetchone()
     conn.close()
@@ -345,8 +345,8 @@ def criar_receber(conta: ContaIn, usuario=Depends(pode_editar)):
     if conta.restrita and usuario["perfil"]!="admin":
         raise HTTPException(403,"Só admin pode criar contas restritas")
     conn = get_db()
-    cur=execute_query(conn, "INSERT INTO contas_receber (desc,categoria,valor,vencimento,status,restrita) VALUES (?,?,?,?,?,?)",
-        (conta.desc,conta.categoria,conta.valor,conta.vencimento,conta.status,conta.restrita or 0))
+    cur=execute_query(conn, "INSERT INTO contas_receber (descricao,categoria,valor,vencimento,status,restrita) VALUES (?,?,?,?,?,?)",
+        (conta.descricaoricao,conta.categoria,conta.valor,conta.vencimento,conta.status,conta.restrita or 0))
     conn.commit()
     row=execute_query(conn, "SELECT * FROM contas_receber WHERE id=?",(cur.lastrowid,)).fetchone()
     conn.close()
@@ -1023,18 +1023,18 @@ def gerar_relatorio(
 
         if tipo_rel == "pagar":
             headers = ["Descrição","Categoria","Valor","Vencimento","Status"]
-            rows = [(r["desc"],r["categoria"],fmtR_str(r["valor"]),fmtD(r["vencimento"]),r["status"]) for r in pagar_rows]
+            rows = [(r["descricao"],r["categoria"],fmtR_str(r["valor"]),fmtD(r["vencimento"]),r["status"]) for r in pagar_rows]
             total = sum(r["valor"] for r in pagar_rows)
             tabelas = [(titulo, headers, rows, ["TOTAL","",fmtR_str(total),"",""])]
         elif tipo_rel == "receber":
             headers = ["Descrição","Categoria","Valor","Vencimento","Status"]
-            rows = [(r["desc"],r["categoria"],fmtR_str(r["valor"]),fmtD(r["vencimento"]),r["status"]) for r in receber_rows]
+            rows = [(r["descricao"],r["categoria"],fmtR_str(r["valor"]),fmtD(r["vencimento"]),r["status"]) for r in receber_rows]
             total = sum(r["valor"] for r in receber_rows)
             tabelas = [(titulo, headers, rows, ["TOTAL","",fmtR_str(total),"",""])]
         elif tipo_rel == "fluxo":
             headers = ["Tipo","Descrição","Categoria","Valor","Vencimento","Status"]
-            rows = [("Entrada",r["desc"],r["categoria"],fmtR_str(r["valor"]),fmtD(r["vencimento"]),r["status"]) for r in receber_rows]
-            rows += [("Saída",r["desc"],r["categoria"],fmtR_str(r["valor"]),fmtD(r["vencimento"]),r["status"]) for r in pagar_rows]
+            rows = [("Entrada",r["descricao"],r["categoria"],fmtR_str(r["valor"]),fmtD(r["vencimento"]),r["status"]) for r in receber_rows]
+            rows += [("Saída",r["descricao"],r["categoria"],fmtR_str(r["valor"]),fmtD(r["vencimento"]),r["status"]) for r in pagar_rows]
             tot_e = sum(r["valor"] for r in receber_rows)
             tot_s = sum(r["valor"] for r in pagar_rows)
             tabelas = [(titulo, headers, rows, ["RESULTADO","","",fmtR_str(tot_e-tot_s),"",""])]
@@ -1056,7 +1056,7 @@ def gerar_relatorio(
             from datetime import datetime, timedelta as dt
             hoje = dt.date.today()
             headers = ["Descrição","Categoria","Valor","Vencimento","Dias Atraso"]
-            rows = [(r["desc"],r["categoria"],fmtR_str(r["valor"]),fmtD(r["vencimento"]),(hoje-dt.date.fromisoformat(r["vencimento"])).days) for r in pagar_rows]
+            rows = [(r["descricao"],r["categoria"],fmtR_str(r["valor"]),fmtD(r["vencimento"]),(hoje-dt.date.fromisoformat(r["vencimento"])).days) for r in pagar_rows]
             total = sum(r["valor"] for r in pagar_rows)
             tabelas = [(titulo,headers,rows,["TOTAL","",fmtR_str(total),"",""])]
         elif tipo_rel == "resumo":
@@ -1118,17 +1118,17 @@ def config_migrate():
     cc = [("Administração","Gestão administrativa",1),("Musculação","Setor de musculação",2),("Spinning","Sala de spinning",3),("Aulas Coletivas","Ginástica, zumba etc.",4),("Recepção","Atendimento",5),("Personal Trainer","Setor de personal",6),("Limpeza","Manutenção e limpeza",7),("Loja / Suplementos","Venda de produtos",8),("Marketing","Marketing e vendas",9)]
     fp = [("Pix","Transferência via Pix",1),("Dinheiro","Pagamento em espécie",2),("Cartão de Débito","Débito na maquininha",3),("Cartão de Crédito","Crédito na maquininha",4),("Boleto Bancário","Boleto bancário",5),("Transferência Bancária","TED ou DOC",6),("Débito Automático","Cobrança automática",7)]
     
-    for nome,desc,ordem in desp:
-        try: execute_query(conn, "INSERT INTO categorias_despesa (nome,descricao,ordem) VALUES (?,?,?)",(nome,desc,ordem))
+    for nome,descricao,ordem in desp:
+        try: execute_query(conn, "INSERT INTO categorias_despesa (nome,descricao,ordem) VALUES (?,?,?)",(nome,descricao,ordem))
         except: pass
-    for nome,desc,ordem in rec:
-        try: execute_query(conn, "INSERT INTO categorias_receita (nome,descricao,ordem) VALUES (?,?,?)",(nome,desc,ordem))
+    for nome,descricao,ordem in rec:
+        try: execute_query(conn, "INSERT INTO categorias_receita (nome,descricao,ordem) VALUES (?,?,?)",(nome,descricao,ordem))
         except: pass
-    for nome,desc,ordem in cc:
-        try: execute_query(conn, "INSERT INTO centros_custo (nome,descricao,ordem) VALUES (?,?,?)",(nome,desc,ordem))
+    for nome,descricao,ordem in cc:
+        try: execute_query(conn, "INSERT INTO centros_custo (nome,descricao,ordem) VALUES (?,?,?)",(nome,descricao,ordem))
         except: pass
-    for nome,desc,ordem in fp:
-        try: execute_query(conn, "INSERT INTO formas_pagamento (nome,descricao,ordem) VALUES (?,?,?)",(nome,desc,ordem))
+    for nome,descricao,ordem in fp:
+        try: execute_query(conn, "INSERT INTO formas_pagamento (nome,descricao,ordem) VALUES (?,?,?)",(nome,descricao,ordem))
         except: pass
     conn.commit(); conn.close()
     return {"ok": True, "msg": "Configurações migradas!"}
