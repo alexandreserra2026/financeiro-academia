@@ -43,7 +43,7 @@ def fetchall_dict(conn, query, params=None):
         rows = cur.fetchall()
         if not rows:
             return []
-        columns = [desc[0] for descricao in cur.description]
+        columns = [desc[0] for desc in cur.description]
         return [dict(zip(columns, row)) for row in rows]
     else:
         # SQLite - já retorna dicts com row_factory
