@@ -401,8 +401,9 @@ def deletar_receber(id: int, admin=Depends(requer_admin)):
 @app.get("/api/resumo")
 def resumo(usuario=Depends(get_usuario)):
     conn = get_db()
-    hoje = datetime.date.today().isoformat()
-    em7 = (datetime.date.today()+timedelta(days=7)).isoformat()
+    from datetime import timedelta
+    hoje = datetime.today().date().isoformat()
+    em7 = (datetime.today().date()+timedelta(days=7)).isoformat()
     fr = " AND restrita=0" if not ve_restritas(usuario) else ""
     a_pagar=execute_query(conn, f"SELECT COALESCE(SUM(valor),0) FROM contas_pagar WHERE status!='pago'{fr}").fetchone()[0]
     a_receber=execute_query(conn, f"SELECT COALESCE(SUM(valor),0) FROM contas_receber WHERE status!='recebido'{fr}").fetchone()[0]
