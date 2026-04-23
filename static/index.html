@@ -810,6 +810,7 @@ function showToast(id, msg, type) {
 
 function loadDash() {
   Promise.all([
+    api('/api/resumo').then(function(r){ return r ? r.json() : null; }),
     api('/api/dashboard').then(function(r){ return r ? r.json() : null; }),
     api('/api/pagar').then(function(r){ return r ? r.json() : null; }),
     api('/api/receber').then(function(r){ return r ? r.json() : null; }),
