@@ -29,9 +29,9 @@ def execute_query(conn, query, params=None):
     else:
         # SQLite - usa execute direto
         if params:
-            return execute_query(conn, query, params)
+            return conn.execute(query, params)
         else:
-            return execute_query(conn, query)
+            return conn.execute(query)
 
 def fetchall_dict(conn, query, params=None):
     """Retorna resultados como lista de dicts"""
@@ -304,17 +304,29 @@ def listar_pagar(status: Optional[str]=None, usuario=Depends(get_usuario)):
     conn.close()
     return [dict(r) for r in rows]
 
+
 @app.post("/api/pagar")
 def criar_pagar(conta: ContaIn, usuario=Depends(pode_editar)):
+    import os
     if conta.restrita and usuario["perfil"]!="admin":
         raise HTTPException(403,"Só admin pode criar contas restritas")
     conn = get_db()
-    cur=execute_query(conn, "INSERT INTO contas_pagar (descricao,categoria,valor,vencimento,status,restrita) VALUES (?,?,?,?,?,?)",
-        (conta.descricao,conta.categoria,conta.valor,conta.vencimento,conta.status,conta.restrita or 0))
+    
+    if os.getenv('DATABASE_URL'):
+        # PostgreSQL - usa RETURNING
+        cur = execute_query(conn, "INSERT INTO contas_pagar (descricao,categoria,valor,vencimento,status,restrita,observacao,numero_doc,centro_custo,forma_pagamento,data_pagamento,recorrente) VALUES (?,?,?,?,?,?,?,?,?,?,?,?) RETURNING id",
+            (conta.descricao,conta.categoria,conta.valor,conta.vencimento,conta.status,conta.restrita or 0,conta.observacao,conta.numero_doc,conta.centro_custo,conta.forma_pagamento,conta.data_pagamento,conta.recorrente or 0))
+        new_id = cur.fetchone()[0]
+    else:
+        # SQLite - usa lastrowid
+        cur = execute_query(conn, "INSERT INTO contas_pagar (descricao,categoria,valor,vencimento,status,restrita,observacao,numero_doc,centro_custo,forma_pagamento,data_pagamento,recorrente) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+            (conta.descricao,conta.categoria,conta.valor,conta.vencimento,conta.status,conta.restrita or 0,conta.observacao,conta.numero_doc,conta.centro_custo,conta.forma_pagamento,conta.data_pagamento,conta.recorrente or 0))
+        new_id = cur.lastrowid
+    
     conn.commit()
-    row=execute_query(conn, "SELECT * FROM contas_pagar WHERE id=?",(cur.lastrowid,)).fetchone()
+    row = fetchall_dict(conn, "SELECT * FROM contas_pagar WHERE id=?", (new_id,))[0]
     conn.close()
-    return dict(row)
+    return row
 
 @app.patch("/api/pagar/{id}")
 def atualizar_pagar(id: int, update: StatusUpdate, usuario=Depends(pode_editar)):
@@ -349,16 +361,26 @@ def listar_receber(status: Optional[str]=None, usuario=Depends(get_usuario)):
 
 @app.post("/api/receber")
 def criar_receber(conta: ContaIn, usuario=Depends(pode_editar)):
+    import os
     if conta.restrita and usuario["perfil"]!="admin":
         raise HTTPException(403,"Só admin pode criar contas restritas")
     conn = get_db()
-    cur=execute_query(conn, "INSERT INTO contas_receber (descricao,categoria,valor,vencimento,status,restrita) VALUES (?,?,?,?,?,?)",
-        (conta.descricao,conta.categoria,conta.valor,conta.vencimento,conta.status,conta.restrita or 0))
+    
+    if os.getenv('DATABASE_URL'):
+        # PostgreSQL - usa RETURNING
+        cur = execute_query(conn, "INSERT INTO contas_receber (descricao,categoria,valor,vencimento,status,restrita,observacao,numero_doc,centro_custo,forma_pagamento,data_pagamento,recorrente) VALUES (?,?,?,?,?,?,?,?,?,?,?,?) RETURNING id",
+            (conta.descricao,conta.categoria,conta.valor,conta.vencimento,conta.status,conta.restrita or 0,conta.observacao,conta.numero_doc,conta.centro_custo,conta.forma_pagamento,conta.data_pagamento,conta.recorrente or 0))
+        new_id = cur.fetchone()[0]
+    else:
+        # SQLite - usa lastrowid
+        cur = execute_query(conn, "INSERT INTO contas_receber (descricao,categoria,valor,vencimento,status,restrita,observacao,numero_doc,centro_custo,forma_pagamento,data_pagamento,recorrente) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+            (conta.descricao,conta.categoria,conta.valor,conta.vencimento,conta.status,conta.restrita or 0,conta.observacao,conta.numero_doc,conta.centro_custo,conta.forma_pagamento,conta.data_pagamento,conta.recorrente or 0))
+        new_id = cur.lastrowid
+    
     conn.commit()
-    row=execute_query(conn, "SELECT * FROM contas_receber WHERE id=?",(cur.lastrowid,)).fetchone()
+    row = fetchall_dict(conn, "SELECT * FROM contas_receber WHERE id=?", (new_id,))[0]
     conn.close()
-    return dict(row)
-
+    return row
 @app.patch("/api/receber/{id}")
 def atualizar_receber(id: int, update: StatusUpdate, usuario=Depends(pode_editar)):
     conn = get_db()
