@@ -475,12 +475,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
             <div class="ff"><label>Vencimento</label><input id="p-venc" type="date"></div>
           </div>
           <div class="row2">
-            <div class="ff"><label>Nº Documento</label><input id="p-ndoc" type="text" placeholder="NF, boleto, etc."></div>
-            <div class="ff"><label>Centro de Custo</label><select id="p-cc"><option value="">Selecione...</option></select></div>
-          </div>
-          <div class="row2">
-            <div class="ff"><label>Centro de Custo</label><select id="p-cc"><option value="">Selecione...</option><option>Academia</option><option>Administrativo</option><option>Marketing</option><option>Outros</option></select></div>
-            <div class="ff"><label>Data do Pagamento</label><input id="p-dtpag" type="date"></div>
+  <div class="ff"><label>Nº Documento</label><input id="p-ndoc" type="text" placeholder="NF, boleto, etc."></div>
+  <div class="ff"><label>Centro de Custo</label><select id="p-cc"><option value="">Selecione...</option><option>Academia</option><option>Administrativo</option><option>Marketing</option><option>Outros</option></select></div>
+</div>
+<div class="row2">
+  <div class="ff"><label>Forma de Pagamento</label><select id="p-fp"><option value="">Selecione...</option><option>Dinheiro</option><option>PIX</option><option>Débito</option><option>Crédito</option><option>Boleto</option><option>Transferência</option></select></div>
+  <div class="ff"><label>Data do Pagamento</label><input id="p-dtpag" type="date"></div>
+</div>
           </div>
           <div class="ff" style="margin-bottom:10px"><label>Observação</label><textarea id="p-obs" rows="2" style="border:1.5px solid var(--border);border-radius:var(--radius);padding:8px 10px;font-size:13px;background:var(--surface);color:var(--text);outline:none;resize:vertical;width:100%;" placeholder="Informações adicionais..."></textarea></div>
           <div id="row-restrita-p" style="display:none;align-items:center;gap:8px;margin-bottom:10px">
@@ -522,7 +523,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
           </div>
           <div class="row2">
             <div class="ff"><label>Nº Documento</label><input id="r-ndoc" type="text" placeholder="Recibo, NF, etc."></div>
-            <div class="ff"><label>Centro de Custo</label><select id="r-cc"><option value="">Selecione...</option><option>Academia</option><option>Administrativo</option><option>Marketing</option><option>Outros</option></select>></div>
+            <div class="ff"><label>Centro de Custo</label><select id="r-cc"><option value="">Selecione...</option><option>Academia</option><option>Administrativo</option><option>Marketing</option><option>Outros</option></select></div>
           </div>
           <div class="row2">
             <div class="ff"><label>Forma de Recebimento</label><select id="r-fp"><option value="">Selecione...</option><option>Dinheiro</option><option>PIX</option><option>Débito</option><option>Crédito</option><option>Boleto</option><option>Transferência</option></select></div>
