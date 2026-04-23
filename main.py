@@ -110,13 +110,13 @@ def init_db():
 init_db()
 
 def get_usuario(request: Request):
+    import os
     token = request.cookies.get("token") or request.headers.get("Authorization","").replace("Bearer ","")
     if not token:
         raise HTTPException(401,"Não autenticado")
     conn = get_db()
     agora = datetime.now().isoformat()
-    row = conn.execute(
-cur = execute_query(conn,
+    cur = execute_query(conn,
         "SELECT u.* FROM sessoes s JOIN usuarios u ON u.id=s.usuario_id WHERE s.token=? AND s.expira_em>? AND u.ativo=1",
         (token, agora))
     row = cur.fetchone()
@@ -130,7 +130,6 @@ cur = execute_query(conn,
     if not row:
         raise HTTPException(401,"Sessão inválida")
     return dict(row)
-
 def requer_admin(usuario=Depends(get_usuario)):
     if usuario["perfil"]!="admin":
         raise HTTPException(403,"Acesso restrito")
