@@ -1009,7 +1009,7 @@ function addConta(tipo) {
   var dtpag = document.getElementById(p+'-dtpag') ? document.getElementById(p+'-dtpag').value : '';
   var tid = 't-'+p;
   if(!desc||!val||!venc) { showToast(tid,'Preencha todos os campos obrigatórios.','err'); return; }
-  api('/api/'+tipo, {method:'POST', body:JSON.stringify({desc:desc, categoria:cat, valor:val, vencimento:venc, restrita:restrita, observacao:obs, numero_doc:ndoc, centro_custo:cc, forma_pagamento:fp, data_pagamento:dtpag})})
+  api('/api/'+tipo, {method:'POST', body:JSON.stringify({descricao:desc, categoria:cat, valor:val, vencimento:venc, restrita:restrita, observacao:obs, numero_doc:ndoc, centro_custo:cc, forma_pagamento:fp, data_pagamento:dtpag})})
   .then(function(res) {
     if(res&&res.ok) {
       showToast(tid,'Conta registrada!','ok');
