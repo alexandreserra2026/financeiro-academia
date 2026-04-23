@@ -161,7 +161,7 @@ class UsuarioUpdate(BaseModel):
     ativo: Optional[int]=None
 
 class ContaIn(BaseModel):
-    desc: str
+    descricao: str
     categoria: str
     valor: float
     vencimento: str
