@@ -816,10 +816,10 @@ function loadDash() {
     api('/api/receber').then(function(r){ return r ? r.json() : null; }),
     api('/api/dre').then(function(r){ return r ? r.json() : null; })
   ]).then(function(results) {
-    var data = results[0], pagar = results[1], receber = results[2], dre = results[3];
+    var resumo = results[0], data = results[1], pagar = results[2], receber = results[3], dre = results[4];
     if(!data) return;
 
-    var saldo = data.saldo_previsto;
+    var saldo = resumo.saldo_previsto;
     var margem = dre ? dre.margem : 0;
     var trendSaldo = saldo >= 0 ? 'up' : 'down';
     var trendMargem = margem >= 15 ? 'up' : margem >= 0 ? 'neutral' : 'down';
@@ -828,11 +828,11 @@ function loadDash() {
     var dEl = document.getElementById('dash-date');
     if(dEl) dEl.textContent = now.toLocaleDateString('pt-BR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
     document.getElementById('kpis').innerHTML =
-      '<div class="kcard"><div class="lbl">A Receber</div><div class="val pos">'+fmt(data.a_receber)+'</div><div class="sub"><span class="trend up">&#8593; Previsto</span></div></div>' +
-      '<div class="kcard red"><div class="lbl">A Pagar</div><div class="val neg">'+fmt(data.a_pagar)+'</div><div class="sub"><span class="trend '+(data.vencidos_pagar>0?'down':'neutral')+'">'+data.vencidos_pagar+' vencidos</span></div></div>' +
+      '<div class="kcard"><div class="lbl">A Receber</div><div class="val pos">'+fmt(resumo.a_receber)+'</div><div class="sub"><span class="trend up">&#8593; Previsto</span></div></div>' +
+      '<div class="kcard red"><div class="lbl">A Pagar</div><div class="val neg">'+fmt(resumo.a_pagar)+'</div><div class="sub"><span class="trend '+(resumo.vencidos_pagar>0?'down':'neutral')+'">'+data.vencidos_pagar+' vencidos</span></div></div>' +
       '<div class="kcard '+(saldo<0?'red':'')+'"><div class="lbl">Saldo Previsto</div><div class="val '+(saldo>=0?'pos':'neg')+'">'+fmt(saldo)+'</div><div class="sub"><span class="trend '+trendSaldo+'">'+(saldo>=0?'&#8593; Positivo':'&#8595; Negativo')+'</span></div></div>' +
-      '<div class="kcard"><div class="lbl">Recebido</div><div class="val pos">'+fmt(data.recebido_mes)+'</div><div class="sub"><span class="trend neutral">Realizado</span></div></div>' +
-      '<div class="kcard red"><div class="lbl">Pago</div><div class="val neg">'+fmt(data.pago_mes)+'</div><div class="sub"><span class="trend neutral">Realizado</span></div></div>' +
+      '<div class="kcard"><div class="lbl">Recebido</div><div class="val pos">'+fmt(resumo.recebido_mes)+'</div><div class="sub"><span class="trend neutral">Realizado</span></div></div>' +
+      '<div class="kcard red"><div class="lbl">Pago</div><div class="val neg">'+fmt(resumo.pago_mes)+'</div><div class="sub"><span class="trend neutral">Realizado</span></div></div>' +
       '<div class="kcard blue"><div class="lbl">Margem Líquida</div><div class="val '+(margem>=0?'pos':'neg')+'">'+margem+'%</div><div class="sub"><span class="trend '+trendMargem+'">'+(margem>=15?'&#8593; Saudável':margem>=0?'&#8594; Moderada':'&#8595; Negativa')+'</span></div></div>';
 
     // Gráfico de barras - semanas
