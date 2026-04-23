@@ -1116,10 +1116,36 @@ function toggleDatas(){ document.getElementById('datas-rel').style.display=docum
 function gerarRel(){
   var tipo=document.getElementById('rel-tipo').value, periodo=document.getElementById('rel-periodo').value;
   var formato=document.getElementById('rel-formato').value, ini=document.getElementById('rel-ini').value, fim=document.getElementById('rel-fim').value;
-  var url='/api/relatorios?tipo='+tipo+'?formato='+formato+'&periodo='+periodo;
-  if(periodo==='personalizado'&&ini&&fim)url+='&data_ini='+ini+'&data_fim='+fim;
+  
+  // Calcula datas baseado no período
+  var hoje = new Date();
+  var dataFim = hoje.toISOString().split('T')[0];
+  var dataInicio;
+  
+  if(periodo==='personalizado' && ini && fim){
+    dataInicio = ini;
+    dataFim = fim;
+  } else if(periodo==='diario'){
+    dataInicio = dataFim;
+  } else if(periodo==='semanal'){
+    var semanaAtras = new Date(hoje);
+    semanaAtras.setDate(hoje.getDate() - 7);
+    dataInicio = semanaAtras.toISOString().split('T')[0];
+  } else if(periodo==='mensal'){
+    var mesAtras = new Date(hoje);
+    mesAtras.setMonth(hoje.getMonth() - 1);
+    dataInicio = mesAtras.toISOString().split('T')[0];
+  } else if(periodo==='trimestral'){
+    var trimAtras = new Date(hoje);
+    trimAtras.setMonth(hoje.getMonth() - 3);
+    dataInicio = trimAtras.toISOString().split('T')[0];
+  }
+  
+  var url='/api/relatorios?tipo='+tipo+'&formato='+formato+'&data_inicio='+dataInicio+'&data_fim='+dataFim;
+  
   if(formato==='pdf')window.open(url,'_blank');
-  else{var a=document.createElement('a');a.href=url;a.click();}
+  else{var a=document.createElement('a');a.href=url;a.download='relatorio.'+formato;a.click();}
+}
 }
 function previewRel(){
   var tipo=document.getElementById('rel-tipo').value, periodo=document.getElementById('rel-periodo').value;
@@ -1502,7 +1528,7 @@ fetch('/api/me').then(function(r){
       
       const params = new URLSearchParams({
         tipo: tipo,
-        formato: formato,
+        formato: formato === 'excel' ? 'xlsx' : formato,
         data_inicio: dataInicio,
         data_fim: dataFim,
         tipo_conta: tipoConta,
