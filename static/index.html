@@ -1117,7 +1117,6 @@ function gerarRel(){
   var tipo=document.getElementById('rel-tipo').value, periodo=document.getElementById('rel-periodo').value;
   var formato=document.getElementById('rel-formato').value, ini=document.getElementById('rel-ini').value, fim=document.getElementById('rel-fim').value;
   
-  // Calcula datas baseado no período
   var hoje = new Date();
   var dataFim = hoje.toISOString().split('T')[0];
   var dataInicio;
@@ -1146,7 +1145,8 @@ function gerarRel(){
   if(formato==='pdf')window.open(url,'_blank');
   else{var a=document.createElement('a');a.href=url;a.download='relatorio.'+formato;a.click();}
 }
-}
+  
+ 
 function previewRel(){
   var tipo=document.getElementById('rel-tipo').value, periodo=document.getElementById('rel-periodo').value;
   var ini=document.getElementById('rel-ini').value, fim=document.getElementById('rel-fim').value;
