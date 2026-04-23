@@ -124,7 +124,7 @@ def get_usuario(request: Request):
     if os.getenv('DATABASE_URL'):
         # PostgreSQL - converte tupla para dict
         if row:
-           columns = [desc[0] for desc in cur.description]
+            columns = [desc[0] for desc in cur.description]
             row = dict(zip(columns, row))
     conn.close()
     if not row:
