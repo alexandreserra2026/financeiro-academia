@@ -488,15 +488,36 @@ def gerar_relatorio(tipo: str, formato: str, data_inicio: str, data_fim: str,
     tipo_conta = (tipo_conta or "todos").lower().strip()
     status = (status or "todos").lower().strip()
 
+    tipo_original = tipo
     aliases = {
-        "financeiro": "financeiro", "geral": "financeiro", "relatorio": "financeiro",
+        "financeiro": "financeiro", "geral": "financeiro", "relatorio": "financeiro", "resumo gerencial": "financeiro",
         "dre": "dre", "resultado": "dre", "demonstrativo": "dre",
-        "fluxo": "fluxo", "fluxo_caixa": "fluxo", "fluxo-de-caixa": "fluxo", "caixa": "fluxo",
+        "fluxo": "fluxo", "fluxo de caixa": "fluxo", "fluxo_caixa": "fluxo", "fluxo-de-caixa": "fluxo", "caixa": "fluxo",
+        "contas a pagar": "financeiro", "contas_a_pagar": "financeiro", "pagar": "financeiro",
+        "contas a receber": "financeiro", "contas_a_receber": "financeiro", "receber": "financeiro",
+        "inadimplencia": "financeiro", "inadimplência": "financeiro", "inadimplentes": "financeiro",
     }
     tipo = aliases.get(tipo, tipo)
 
+    titulos_personalizados = {
+        "resumo gerencial": "Resumo Gerencial — Body Fitness",
+        "contas a pagar": "Relatório de Contas a Pagar — Body Fitness", "contas_a_pagar": "Relatório de Contas a Pagar — Body Fitness", "pagar": "Relatório de Contas a Pagar — Body Fitness",
+        "contas a receber": "Relatório de Contas a Receber — Body Fitness", "contas_a_receber": "Relatório de Contas a Receber — Body Fitness", "receber": "Relatório de Contas a Receber — Body Fitness",
+        "inadimplencia": "Relatório de Inadimplência — Body Fitness", "inadimplência": "Relatório de Inadimplência — Body Fitness", "inadimplentes": "Relatório de Inadimplência — Body Fitness",
+    }
+    titulo_customizado = titulos_personalizados.get(tipo_original)
+
+    if tipo_original in {"contas a pagar", "contas_a_pagar", "pagar"}:
+        tipo_conta = "pagar"
+    elif tipo_original in {"contas a receber", "contas_a_receber", "receber"}:
+        tipo_conta = "receber"
+    elif tipo_original in {"inadimplencia", "inadimplência", "inadimplentes"}:
+        tipo_conta = "receber"
+        if status == "todos":
+            status = "aberto"
+
     if tipo not in {"financeiro", "dre", "fluxo"}:
-        raise HTTPException(400, "Tipo de relatório inválido. Use: financeiro, dre ou fluxo.")
+        raise HTTPException(400, "Tipo de relatório inválido. Use: financeiro, resumo gerencial, fluxo de caixa, DRE, contas a pagar, contas a receber ou inadimplência.")
     if formato not in {"pdf", "excel"}:
         raise HTTPException(400, "Formato inválido. Use: pdf ou excel.")
     if not data_inicio or not data_fim:
@@ -508,6 +529,8 @@ def gerar_relatorio(tipo: str, formato: str, data_inicio: str, data_fim: str,
         return f"R$ {float(valor or 0):,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
     def titulo_relatorio():
+        if titulo_customizado:
+            return titulo_customizado
         return {
             "financeiro": "Relatório Financeiro — Body Fitness",
             "dre": "DRE — Demonstrativo de Resultado — Body Fitness",
@@ -515,7 +538,8 @@ def gerar_relatorio(tipo: str, formato: str, data_inicio: str, data_fim: str,
         }[tipo]
 
     def filename(ext):
-        return f"relatorio_{tipo}_{data_inicio}_a_{data_fim}.{ext}"
+        nome = tipo_original.replace(" ", "_").replace("ç", "c").replace("ê", "e").replace("í", "i").replace("ã", "a")
+        return f"relatorio_{nome}_{data_inicio}_a_{data_fim}.{ext}"
 
     fr = filtro_restritas(usuario)
     conn = get_db()
