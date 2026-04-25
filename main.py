@@ -470,79 +470,237 @@ def get_dre(mes: int = None, ano: int = None, usuario=Depends(get_usuario)):
 @app.get("/api/relatorios")
 def gerar_relatorio(tipo: str, formato: str, data_inicio: str, data_fim: str,
                     tipo_conta: str = "todos", status: str = "todos", usuario=Depends(get_usuario)):
+    """
+    Relatórios separados por finalidade:
+    - financeiro: listagem detalhada de receitas/despesas no período.
+    - dre: resumo por categoria com receitas recebidas e despesas pagas.
+    - fluxo: entradas, saídas e saldo acumulado em ordem cronológica.
+    """
     from reportlab.lib.pagesizes import A4, landscape
     from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
     from reportlab.lib import colors
-    from reportlab.lib.styles import getSampleStyleSheet
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
     from openpyxl import Workbook
     from openpyxl.styles import Font, PatternFill, Alignment
 
-    if formato not in {"pdf", "excel"}:
-        raise HTTPException(400, "Formato inválido")
-    fr = filtro_restritas(usuario)
-    params = [data_inicio, data_fim]
-    status_sql = ""
-    if status and status != "todos":
-        status_sql = " AND status=?"
-        params.append(status)
-    conn = get_db()
-    dados = []
-    if tipo_conta in {"todos", "receber", "receitas"}:
-        dados += [{**r, "tipo": "Receita"} for r in fetchall_dict(conn, f"SELECT * FROM contas_receber WHERE vencimento BETWEEN ? AND ?{status_sql}{fr} ORDER BY vencimento", tuple(params))]
-    if tipo_conta in {"todos", "pagar", "despesas"}:
-        dados += [{**r, "tipo": "Despesa"} for r in fetchall_dict(conn, f"SELECT * FROM contas_pagar WHERE vencimento BETWEEN ? AND ?{status_sql}{fr} ORDER BY vencimento", tuple(params))]
-    conn.close()
-    dados.sort(key=lambda x: (x.get("vencimento") or "", x.get("tipo") or ""))
+    tipo = (tipo or "financeiro").lower().strip()
+    formato = (formato or "pdf").lower().strip()
+    tipo_conta = (tipo_conta or "todos").lower().strip()
+    status = (status or "todos").lower().strip()
 
-    total_receitas = sum(float(d.get("valor") or 0) for d in dados if d["tipo"] == "Receita")
-    total_despesas = sum(float(d.get("valor") or 0) for d in dados if d["tipo"] == "Despesa")
+    aliases = {
+        "financeiro": "financeiro", "geral": "financeiro", "relatorio": "financeiro",
+        "dre": "dre", "resultado": "dre", "demonstrativo": "dre",
+        "fluxo": "fluxo", "fluxo_caixa": "fluxo", "fluxo-de-caixa": "fluxo", "caixa": "fluxo",
+    }
+    tipo = aliases.get(tipo, tipo)
+
+    if tipo not in {"financeiro", "dre", "fluxo"}:
+        raise HTTPException(400, "Tipo de relatório inválido. Use: financeiro, dre ou fluxo.")
+    if formato not in {"pdf", "excel"}:
+        raise HTTPException(400, "Formato inválido. Use: pdf ou excel.")
+    if not data_inicio or not data_fim:
+        raise HTTPException(400, "Informe data_inicio e data_fim.")
+    if data_inicio > data_fim:
+        raise HTTPException(400, "A data inicial não pode ser maior que a data final.")
+
+    def brl(valor):
+        return f"R$ {float(valor or 0):,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+
+    def titulo_relatorio():
+        return {
+            "financeiro": "Relatório Financeiro — Body Fitness",
+            "dre": "DRE — Demonstrativo de Resultado — Body Fitness",
+            "fluxo": "Fluxo de Caixa — Body Fitness",
+        }[tipo]
+
+    def filename(ext):
+        return f"relatorio_{tipo}_{data_inicio}_a_{data_fim}.{ext}"
+
+    fr = filtro_restritas(usuario)
+    conn = get_db()
+
+    def carregar_lancamentos(apenas_realizados=False):
+        dados = []
+
+        def status_sql_params(status_realizado):
+            params = [data_inicio, data_fim]
+            sql = ""
+            if apenas_realizados:
+                sql = " AND status=?"
+                params.append(status_realizado)
+            elif status and status != "todos":
+                sql = " AND status=?"
+                params.append(status)
+            return sql, tuple(params)
+
+        if tipo_conta in {"todos", "receber", "receitas", "receita"}:
+            status_sql, params = status_sql_params("recebido")
+            receitas = fetchall_dict(
+                conn,
+                f"SELECT * FROM contas_receber WHERE vencimento BETWEEN ? AND ?{status_sql}{fr} ORDER BY vencimento, id",
+                params,
+            )
+            dados += [{**r, "tipo": "Receita", "entrada": float(r.get("valor") or 0), "saida": 0.0} for r in receitas]
+
+        if tipo_conta in {"todos", "pagar", "despesas", "despesa"}:
+            status_sql, params = status_sql_params("pago")
+            despesas = fetchall_dict(
+                conn,
+                f"SELECT * FROM contas_pagar WHERE vencimento BETWEEN ? AND ?{status_sql}{fr} ORDER BY vencimento, id",
+                params,
+            )
+            dados += [{**r, "tipo": "Despesa", "entrada": 0.0, "saida": float(r.get("valor") or 0)} for r in despesas]
+
+        dados.sort(key=lambda x: (x.get("vencimento") or "", x.get("tipo") or "", x.get("id") or 0))
+        return dados
+
+    dados_financeiro = carregar_lancamentos(apenas_realizados=False)
+    dados_realizados = carregar_lancamentos(apenas_realizados=True)
+
+    def totais(dados):
+        total_receitas = sum(float(d.get("entrada") or 0) for d in dados)
+        total_despesas = sum(float(d.get("saida") or 0) for d in dados)
+        return total_receitas, total_despesas, total_receitas - total_despesas
+
+    def categorias(dados, tipo_lanc):
+        agrupado = {}
+        for d in dados:
+            if d.get("tipo") != tipo_lanc:
+                continue
+            cat = d.get("categoria") or "Sem categoria"
+            valor = float(d.get("entrada") or d.get("saida") or d.get("valor") or 0)
+            agrupado[cat] = agrupado.get(cat, 0.0) + valor
+        return sorted(agrupado.items(), key=lambda kv: kv[1], reverse=True)
+
+    dre_receitas = categorias(dados_realizados, "Receita")
+    dre_despesas = categorias(dados_realizados, "Despesa")
+    dre_total_receitas = sum(v for _, v in dre_receitas)
+    dre_total_despesas = sum(v for _, v in dre_despesas)
+    dre_resultado = dre_total_receitas - dre_total_despesas
+    dre_margem = (dre_resultado / dre_total_receitas * 100) if dre_total_receitas else 0
+
+    fluxo = []
+    saldo = 0.0
+    for d in dados_financeiro:
+        entrada = float(d.get("entrada") or 0)
+        saida = float(d.get("saida") or 0)
+        saldo += entrada - saida
+        fluxo.append({**d, "saldo": saldo})
 
     if formato == "excel":
         wb = Workbook()
         ws = wb.active
-        ws.title = "Relatório Financeiro"
-        headers = ["Tipo", "Descrição", "Categoria", "Valor", "Vencimento", "Status", "Centro de custo", "Forma pgto", "Observação"]
-        ws.append(headers)
-        for c in ws[1]:
-            c.font = Font(bold=True)
-            c.fill = PatternFill("solid", fgColor="DDDDDD")
-            c.alignment = Alignment(horizontal="center")
-        for d in dados:
-            ws.append([d.get("tipo"), d.get("descricao"), d.get("categoria"), float(d.get("valor") or 0), d.get("vencimento"), d.get("status"), d.get("centro_custo"), d.get("forma_pagamento"), d.get("observacao")])
-        ws.append([])
-        ws.append(["Total receitas", "", "", total_receitas])
-        ws.append(["Total despesas", "", "", total_despesas])
-        ws.append(["Resultado", "", "", total_receitas - total_despesas])
-        for col in ws.columns:
-            ws.column_dimensions[col[0].column_letter].width = min(max(len(str(cell.value or "")) for cell in col) + 2, 45)
+
+        def style_header(sheet):
+            for c in sheet[1]:
+                c.font = Font(bold=True, color="FFFFFF")
+                c.fill = PatternFill("solid", fgColor="C0392B")
+                c.alignment = Alignment(horizontal="center")
+
+        def auto_width(sheet):
+            for col in sheet.columns:
+                sheet.column_dimensions[col[0].column_letter].width = min(max(len(str(cell.value or "")) for cell in col) + 2, 45)
+
+        if tipo == "financeiro":
+            ws.title = "Financeiro"
+            ws.append(["Tipo", "Descrição", "Categoria", "Valor", "Vencimento", "Status", "Centro de custo", "Forma pgto", "Observação"])
+            style_header(ws)
+            for d in dados_financeiro:
+                ws.append([d.get("tipo"), d.get("descricao"), d.get("categoria"), float(d.get("valor") or 0), d.get("vencimento"), d.get("status"), d.get("centro_custo"), d.get("forma_pagamento"), d.get("observacao")])
+            tr, td, res = totais(dados_financeiro)
+            ws.append([])
+            ws.append(["Total receitas", "", "", tr])
+            ws.append(["Total despesas", "", "", td])
+            ws.append(["Resultado", "", "", res])
+            auto_width(ws)
+
+        elif tipo == "dre":
+            ws.title = "DRE"
+            ws.append(["Grupo", "Categoria", "Valor", "% sobre receitas"])
+            style_header(ws)
+            for cat, valor in dre_receitas:
+                ws.append(["Receitas", cat, valor, (valor / dre_total_receitas) if dre_total_receitas else 0])
+            for cat, valor in dre_despesas:
+                ws.append(["Despesas", cat, valor, (valor / dre_total_receitas) if dre_total_receitas else 0])
+            ws.append([])
+            ws.append(["TOTAL RECEITAS", "", dre_total_receitas, 1 if dre_total_receitas else 0])
+            ws.append(["TOTAL DESPESAS", "", dre_total_despesas, (dre_total_despesas / dre_total_receitas) if dre_total_receitas else 0])
+            ws.append(["RESULTADO", "", dre_resultado, (dre_resultado / dre_total_receitas) if dre_total_receitas else 0])
+            ws.append(["MARGEM", "", f"{dre_margem:.1f}%", ""])
+            auto_width(ws)
+
+        else:
+            ws.title = "Fluxo de Caixa"
+            ws.append(["Data", "Tipo", "Descrição", "Categoria", "Entrada", "Saída", "Saldo acumulado", "Status", "Forma pgto"])
+            style_header(ws)
+            for d in fluxo:
+                ws.append([d.get("vencimento"), d.get("tipo"), d.get("descricao"), d.get("categoria"), d.get("entrada"), d.get("saida"), d.get("saldo"), d.get("status"), d.get("forma_pagamento")])
+            auto_width(ws)
+
         bio = BytesIO()
         wb.save(bio)
         bio.seek(0)
-        return StreamingResponse(bio, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", headers={"Content-Disposition": "attachment; filename=relatorio_financeiro.xlsx"})
+        return StreamingResponse(
+            bio,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": f"attachment; filename={filename('xlsx')}"},
+        )
 
     bio = BytesIO()
     doc = SimpleDocTemplate(bio, pagesize=landscape(A4), rightMargin=24, leftMargin=24, topMargin=24, bottomMargin=24)
     styles = getSampleStyleSheet()
-    story = [Paragraph("Relatório Financeiro — Body Fitness", styles["Title"]), Paragraph(f"Período: {data_inicio} a {data_fim}", styles["Normal"]), Spacer(1, 12)]
-    table_data = [["Tipo", "Descrição", "Categoria", "Valor", "Vencimento", "Status", "Centro", "Forma"]]
-    for d in dados:
-        table_data.append([d.get("tipo"), d.get("descricao", "")[:35], d.get("categoria") or "", f"R$ {float(d.get('valor') or 0):,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.'), d.get("vencimento") or "", d.get("status") or "", d.get("centro_custo") or "", d.get("forma_pagamento") or ""])
-    table_data.append(["", "", "Total receitas", f"R$ {total_receitas:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.'), "", "", "", ""])
-    table_data.append(["", "", "Total despesas", f"R$ {total_despesas:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.'), "", "", "", ""])
-    table_data.append(["", "", "Resultado", f"R$ {total_receitas-total_despesas:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.'), "", "", "", ""])
-    table = Table(table_data, repeatRows=1)
+    small = ParagraphStyle("small", parent=styles["Normal"], fontSize=8, leading=10)
+    story = [
+        Paragraph(titulo_relatorio(), styles["Title"]),
+        Paragraph(f"Período: {data_inicio} a {data_fim}", styles["Normal"]),
+        Spacer(1, 12),
+    ]
+
+    if tipo == "financeiro":
+        tr, td, res = totais(dados_financeiro)
+        table_data = [["Tipo", "Descrição", "Categoria", "Valor", "Vencimento", "Status", "Centro", "Forma"]]
+        for d in dados_financeiro:
+            table_data.append([
+                d.get("tipo"), Paragraph(str(d.get("descricao") or ""), small), d.get("categoria") or "",
+                brl(d.get("valor") or 0), d.get("vencimento") or "", d.get("status") or "",
+                d.get("centro_custo") or "", d.get("forma_pagamento") or ""
+            ])
+        table_data += [["", "", "Total receitas", brl(tr), "", "", "", ""], ["", "", "Total despesas", brl(td), "", "", "", ""], ["", "", "Resultado", brl(res), "", "", "", ""]]
+        col_widths = [55, 210, 90, 85, 75, 65, 80, 70]
+
+    elif tipo == "dre":
+        table_data = [["Grupo", "Categoria", "Valor", "% sobre receitas"]]
+        for cat, valor in dre_receitas:
+            table_data.append(["Receitas", cat, brl(valor), f"{(valor / dre_total_receitas * 100) if dre_total_receitas else 0:.1f}%"])
+        for cat, valor in dre_despesas:
+            table_data.append(["Despesas", cat, brl(valor), f"{(valor / dre_total_receitas * 100) if dre_total_receitas else 0:.1f}%"])
+        table_data += [["", "TOTAL RECEITAS", brl(dre_total_receitas), "100.0%" if dre_total_receitas else "0.0%"], ["", "TOTAL DESPESAS", brl(dre_total_despesas), f"{(dre_total_despesas / dre_total_receitas * 100) if dre_total_receitas else 0:.1f}%"], ["", "RESULTADO", brl(dre_resultado), f"{dre_margem:.1f}%"]]
+        col_widths = [90, 280, 120, 120]
+
+    else:
+        table_data = [["Data", "Tipo", "Descrição", "Categoria", "Entrada", "Saída", "Saldo", "Status"]]
+        for d in fluxo:
+            table_data.append([
+                d.get("vencimento") or "", d.get("tipo"), Paragraph(str(d.get("descricao") or ""), small), d.get("categoria") or "",
+                brl(d.get("entrada") or 0), brl(d.get("saida") or 0), brl(d.get("saldo") or 0), d.get("status") or ""
+            ])
+        col_widths = [75, 60, 200, 90, 80, 80, 90, 65]
+
+    table = Table(table_data, repeatRows=1, colWidths=col_widths)
     table.setStyle(TableStyle([
-        ("BACKGROUND", (0,0), (-1,0), colors.HexColor("#C0392B")),
-        ("TEXTCOLOR", (0,0), (-1,0), colors.white),
-        ("GRID", (0,0), (-1,-1), 0.25, colors.grey),
-        ("FONTNAME", (0,0), (-1,0), "Helvetica-Bold"),
-        ("FONTSIZE", (0,0), (-1,-1), 8),
-        ("ALIGN", (3,1), (3,-1), "RIGHT"),
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#C0392B")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("GRID", (0, 0), (-1, -1), 0.25, colors.grey),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTSIZE", (0, 0), (-1, -1), 8),
+        ("ALIGN", (2, 1), (-1, -1), "RIGHT"),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
     ]))
     story.append(table)
     doc.build(story)
     bio.seek(0)
-    return StreamingResponse(bio, media_type="application/pdf", headers={"Content-Disposition": "attachment; filename=relatorio_financeiro.pdf"})
+    return StreamingResponse(bio, media_type="application/pdf", headers={"Content-Disposition": f"attachment; filename={filename('pdf')}"})
 
 
 @app.get("/api/migrate2")
