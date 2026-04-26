@@ -680,58 +680,153 @@ def gerar_relatorio(tipo: str, formato: str, data_inicio: str, data_fim: str,
     bio = BytesIO()
     doc = SimpleDocTemplate(bio, pagesize=landscape(A4), rightMargin=24, leftMargin=24, topMargin=24, bottomMargin=24)
     styles = getSampleStyleSheet()
-    small = ParagraphStyle("small", parent=styles["Normal"], fontSize=8, leading=10)
+    small  = ParagraphStyle("small",  parent=styles["Normal"], fontSize=8,  leading=10)
+    normal = ParagraphStyle("normal", parent=styles["Normal"], fontSize=9,  leading=12)
+    bold9  = ParagraphStyle("bold9",  parent=styles["Normal"], fontSize=9,  leading=12, fontName="Helvetica-Bold")
+
+    def _kpi_table(items):
+        row_val = [Paragraph(
+            "<font name=\"Helvetica-Bold\" size=\"13\" color=\""+cor+"\">"+val+"</font>",
+            styles["Normal"]) for _, val, cor in items]
+        row_lbl = [Paragraph(
+            "<font size=\"8\" color=\"#888888\">"+lbl+"</font>",
+            styles["Normal"]) for lbl, _, __ in items]
+        t = Table([row_val, row_lbl], colWidths=[170]*len(items))
+        t.setStyle(TableStyle([
+            ("ALIGN",        (0,0),(-1,-1),"CENTER"),
+            ("VALIGN",       (0,0),(-1,-1),"MIDDLE"),
+            ("GRID",         (0,0),(-1,-1),0.5,colors.HexColor("#e0e0e0")),
+            ("BACKGROUND",   (0,0),(-1,-1),colors.HexColor("#fafafa")),
+            ("TOPPADDING",   (0,0),(-1,-1),8),
+            ("BOTTOMPADDING",(0,0),(-1,-1),8),
+        ]))
+        return t
+
+    def _tbl(data, widths, extra=None):
+        base = [
+            ("BACKGROUND",    (0,0),(-1,0), colors.HexColor("#C0392B")),
+            ("TEXTCOLOR",     (0,0),(-1,0), colors.white),
+            ("FONTNAME",      (0,0),(-1,0), "Helvetica-Bold"),
+            ("GRID",          (0,0),(-1,-1),0.25,colors.HexColor("#cccccc")),
+            ("FONTSIZE",      (0,0),(-1,-1),8),
+            ("ALIGN",         (2,1),(-1,-1),"RIGHT"),
+            ("VALIGN",        (0,0),(-1,-1),"TOP"),
+            ("ROWBACKGROUNDS",(0,1),(-1,-1),[colors.white,colors.HexColor("#f9f9f9")]),
+        ]
+        if extra: base += extra
+        t = Table(data, repeatRows=1, colWidths=widths)
+        t.setStyle(TableStyle(base))
+        return t
+
     story = [
         Paragraph(titulo_relatorio(), styles["Title"]),
-        Paragraph(f"Período: {data_inicio} a {data_fim}", styles["Normal"]),
-        Spacer(1, 12),
+        Paragraph("Periodo: "+data_inicio+" a "+data_fim+"  |  Gerado em: "+datetime.today().strftime("%d/%m/%Y %H:%M"), styles["Normal"]),
+        Spacer(1, 10),
     ]
 
-    if tipo == "financeiro":
-        tr, td, res = totais(dados_financeiro)
-        table_data = [["Tipo", "Descrição", "Categoria", "Valor", "Vencimento", "Status", "Centro", "Forma"]]
-        for d in dados_financeiro:
-            table_data.append([
-                d.get("tipo"), Paragraph(str(d.get("descricao") or ""), small), d.get("categoria") or "",
-                brl(d.get("valor") or 0), d.get("vencimento") or "", d.get("status") or "",
-                d.get("centro_custo") or "", d.get("forma_pagamento") or ""
-            ])
-        table_data += [["", "", "Total receitas", brl(tr), "", "", "", ""], ["", "", "Total despesas", brl(td), "", "", "", ""], ["", "", "Resultado", brl(res), "", "", "", ""]]
-        col_widths = [55, 210, 90, 85, 75, 65, 80, 70]
+    if tipo_original in {"resumo", "resumo gerencial"}:
+        tr_prev, td_prev, res_prev = totais(dados_financeiro)
+        tr_real, td_real, res_real = totais(dados_realizados)
+        n_aberto = sum(1 for d in dados_financeiro if (d.get("status") or "")=="aberto")
+        story.append(Paragraph("Visao Geral do Periodo", bold9))
+        story.append(Spacer(1,4))
+        story.append(_kpi_table([
+            ("Receitas Previstas",  brl(tr_prev),  "#27AE60"),
+            ("Despesas Previstas",  brl(td_prev),  "#C0392B"),
+            ("Resultado Previsto",  brl(res_prev), "#27AE60" if res_prev>=0 else "#C0392B"),
+            ("Lancamentos em Aberto", str(n_aberto), "#F39C12"),
+        ]))
+        story.append(Spacer(1,6))
+        story.append(_kpi_table([
+            ("Receitas Realizadas", brl(tr_real),  "#27AE60"),
+            ("Despesas Pagas",      brl(td_real),  "#C0392B"),
+            ("Resultado Realizado", brl(res_real), "#27AE60" if res_real>=0 else "#C0392B"),
+            ("Total Lancamentos",   str(len(dados_financeiro)), "#2C3E50"),
+        ]))
+        story.append(Spacer(1,12))
+        story.append(Paragraph("Top Categorias - Despesas", bold9)); story.append(Spacer(1,4))
+        cat_d = categorias(dados_financeiro,"Despesa")[:8]
+        if cat_d:
+            rows=[["Categoria","Valor","% do Total"]]
+            for cat,val in cat_d: rows.append([cat,brl(val),f"{val/td_prev*100:.1f}%" if td_prev else "-"])
+            story.append(_tbl(rows,[320,130,90]))
+        else: story.append(Paragraph("Nenhuma despesa no periodo.",normal))
+        story.append(Spacer(1,10))
+        story.append(Paragraph("Top Categorias - Receitas", bold9)); story.append(Spacer(1,4))
+        cat_r = categorias(dados_financeiro,"Receita")[:8]
+        if cat_r:
+            rows=[["Categoria","Valor","% do Total"]]
+            for cat,val in cat_r: rows.append([cat,brl(val),f"{val/tr_prev*100:.1f}%" if tr_prev else "-"])
+            story.append(_tbl(rows,[320,130,90]))
+        else: story.append(Paragraph("Nenhuma receita no periodo.",normal))
 
     elif tipo == "dre":
-        table_data = [["Grupo", "Categoria", "Valor", "% sobre receitas"]]
-        for cat, valor in dre_receitas:
-            table_data.append(["Receitas", cat, brl(valor), f"{(valor / dre_total_receitas * 100) if dre_total_receitas else 0:.1f}%"])
-        for cat, valor in dre_despesas:
-            table_data.append(["Despesas", cat, brl(valor), f"{(valor / dre_total_receitas * 100) if dre_total_receitas else 0:.1f}%"])
-        table_data += [["", "TOTAL RECEITAS", brl(dre_total_receitas), "100.0%" if dre_total_receitas else "0.0%"], ["", "TOTAL DESPESAS", brl(dre_total_despesas), f"{(dre_total_despesas / dre_total_receitas * 100) if dre_total_receitas else 0:.1f}%"], ["", "RESULTADO", brl(dre_resultado), f"{dre_margem:.1f}%"]]
-        col_widths = [90, 280, 120, 120]
+        story.append(_kpi_table([
+            ("Receitas Realizadas", brl(dre_total_receitas),"#27AE60"),
+            ("Despesas Pagas",      brl(dre_total_despesas),"#C0392B"),
+            ("Resultado Liquido",   brl(dre_resultado),     "#27AE60" if dre_resultado>=0 else "#C0392B"),
+            ("Margem Liquida",      f"{dre_margem:.1f}%",   "#27AE60" if dre_margem>=0 else "#C0392B"),
+        ]))
+        story.append(Spacer(1,10))
+        story.append(Paragraph("RECEITAS - itens marcados como Recebido", bold9)); story.append(Spacer(1,4))
+        if dre_receitas:
+            rows=[["Categoria","Valor","% Receitas"]]
+            for cat,val in dre_receitas: rows.append([cat,brl(val),f"{val/dre_total_receitas*100:.1f}%" if dre_total_receitas else "0%"])
+            rows.append(["TOTAL RECEITAS",brl(dre_total_receitas),"100.0%"])
+            story.append(_tbl(rows,[320,150,130],[("FONTNAME",(0,len(rows)-1),(-1,len(rows)-1),"Helvetica-Bold"),("BACKGROUND",(0,len(rows)-1),(-1,len(rows)-1),colors.HexColor("#e8f5e9"))]))
+        else: story.append(Paragraph("Nenhuma receita realizada. Marque os lancamentos como Recebido para aparecerem na DRE.",normal))
+        story.append(Spacer(1,10))
+        story.append(Paragraph("DESPESAS - itens marcados como Pago", bold9)); story.append(Spacer(1,4))
+        if dre_despesas:
+            rows=[["Categoria","Valor","% Receitas"]]
+            for cat,val in dre_despesas: rows.append([cat,brl(val),f"{val/dre_total_receitas*100:.1f}%" if dre_total_receitas else "0%"])
+            rows.append(["TOTAL DESPESAS",brl(dre_total_despesas),f"{dre_total_despesas/dre_total_receitas*100:.1f}%" if dre_total_receitas else "0%"])
+            story.append(_tbl(rows,[320,150,130],[("FONTNAME",(0,len(rows)-1),(-1,len(rows)-1),"Helvetica-Bold"),("BACKGROUND",(0,len(rows)-1),(-1,len(rows)-1),colors.HexColor("#fdecea"))]))
+        else: story.append(Paragraph("Nenhuma despesa paga. Marque os lancamentos como Pago para aparecerem na DRE.",normal))
+        story.append(Spacer(1,10))
+        res_row = [["RESULTADO LIQUIDO", brl(dre_resultado), f"Margem: {dre_margem:.1f}%"]]
+        story.append(_tbl([["","Valor",""]]+res_row,[240,150,210],[("FONTNAME",(0,1),(-1,1),"Helvetica-Bold"),("FONTSIZE",(0,1),(-1,1),10),("BACKGROUND",(0,1),(-1,1),colors.HexColor("#27AE60") if dre_resultado>=0 else colors.HexColor("#C0392B")),("TEXTCOLOR",(0,1),(-1,1),colors.white)]))
+
+    elif tipo == "fluxo":
+        tr, td, res = totais(dados_financeiro)
+        saldo_final = fluxo[-1]["saldo"] if fluxo else 0.0
+        story.append(_kpi_table([
+            ("Total Entradas", brl(tr),          "#27AE60"),
+            ("Total Saidas",   brl(td),          "#C0392B"),
+            ("Resultado",      brl(res),         "#27AE60" if res>=0 else "#C0392B"),
+            ("Saldo Final",    brl(saldo_final), "#27AE60" if saldo_final>=0 else "#C0392B"),
+        ]))
+        story.append(Spacer(1,10))
+        if fluxo:
+            rows=[["Data","Tipo","Descricao","Categoria","Entrada (+)","Saida (-)","Saldo Acum.","Status"]]
+            for d in fluxo:
+                s=d.get("saldo",0)
+                rows.append([d.get("vencimento") or "",d.get("tipo"),Paragraph(str(d.get("descricao") or ""),small),d.get("categoria") or "",brl(d["entrada"]) if d.get("entrada") else "-",brl(d["saida"]) if d.get("saida") else "-",brl(s),d.get("status") or ""])
+            story.append(_tbl(rows,[72,55,188,88,78,78,88,58],[("TEXTCOLOR",(6,1),(6,-1),colors.HexColor("#1a6e39"))]))
+        else: story.append(Paragraph("Nenhum lancamento encontrado no periodo.",normal))
 
     else:
-        table_data = [["Data", "Tipo", "Descrição", "Categoria", "Entrada", "Saída", "Saldo", "Status"]]
-        for d in fluxo:
-            table_data.append([
-                d.get("vencimento") or "", d.get("tipo"), Paragraph(str(d.get("descricao") or ""), small), d.get("categoria") or "",
-                brl(d.get("entrada") or 0), brl(d.get("saida") or 0), brl(d.get("saldo") or 0), d.get("status") or ""
-            ])
-        col_widths = [75, 60, 200, 90, 80, 80, 90, 65]
+        tr, td, res = totais(dados_financeiro)
+        n_aberto = sum(1 for d in dados_financeiro if (d.get("status") or "")=="aberto")
+        story.append(_kpi_table([
+            ("Total Receitas", brl(tr),             "#27AE60"),
+            ("Total Despesas", brl(td),             "#C0392B"),
+            ("Resultado",      brl(res),            "#27AE60" if res>=0 else "#C0392B"),
+            ("Em Aberto",      f"{n_aberto} item(s)","#F39C12"),
+        ]))
+        story.append(Spacer(1,10))
+        if dados_financeiro:
+            rows=[["Tipo","Descricao","Categoria","Valor","Vencimento","Status","Centro Custo","Forma Pgto"]]
+            for d in dados_financeiro:
+                rows.append([d.get("tipo"),Paragraph(str(d.get("descricao") or ""),small),d.get("categoria") or "",brl(d.get("valor") or 0),d.get("vencimento") or "",d.get("status") or "",d.get("centro_custo") or "",d.get("forma_pagamento") or ""])
+            story.append(_tbl(rows,[52,198,88,82,72,62,90,68]))
+        else: story.append(Paragraph("Nenhum lancamento encontrado no periodo.",normal))
 
-    table = Table(table_data, repeatRows=1, colWidths=col_widths)
-    table.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#C0392B")),
-        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-        ("GRID", (0, 0), (-1, -1), 0.25, colors.grey),
-        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-        ("FONTSIZE", (0, 0), (-1, -1), 8),
-        ("ALIGN", (2, 1), (-1, -1), "RIGHT"),
-        ("VALIGN", (0, 0), (-1, -1), "TOP"),
-    ]))
-    story.append(table)
     doc.build(story)
     bio.seek(0)
     disp = "inline" if preview else "attachment"
     return StreamingResponse(bio, media_type="application/pdf", headers={"Content-Disposition": f"{disp}; filename={filename('pdf')}"})
+
 
 
 @app.get("/api/migrate2")
@@ -922,11 +1017,4 @@ def stop_notif_scheduler():
         _notif_scheduler.shutdown(wait=False)
 
 @app.get("/{full_path:path}")
-def catch_all(full_path: str):
-    return FileResponse("static/index.html")
-
-app.mount("/static", StaticFiles(directory="static"), name="static")
-
-@app.get("/{full_path:path}")
-def catch_all(full_path: str):
-    return FileResponse("static/index.html")
+def catch_all(full_path: str)

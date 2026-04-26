@@ -1170,8 +1170,32 @@ function gerarRel(){
   var fmtEnv=formato==='xlsx'?'excel':formato;
   var url='/api/relatorios?tipo='+tipo+'&formato='+fmtEnv+'&data_inicio='+dataInicio+'&data_fim='+dataFim;
 
-  if(formato==='pdf')window.open(url,'_blank');
-  else{var a=document.createElement('a');a.href=url;a.download='relatorio.'+formato;a.click();}
+  if(formato==='pdf'){
+    // Abre no modal de preview com botao de download
+    var urlPreview=url+'&preview=1';
+    var modal=document.getElementById('preview-pdf-modal');
+    if(!modal){
+      modal=document.createElement('div');
+      modal.id='preview-pdf-modal';
+      modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px';
+      modal.innerHTML='<div style="background:#fff;border-radius:8px;width:100%;max-width:960px;height:92vh;display:flex;flex-direction:column;overflow:hidden">'
+        +'<div style="padding:12px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #e0e0e0">'
+        +'<span style="font-weight:600;font-size:15px">Relatorio — Body Finance</span>'
+        +'<div style="display:flex;gap:8px">'
+        +'<button id="preview-download-btn" style="background:#C0392B;color:#fff;border:none;padding:7px 14px;border-radius:6px;cursor:pointer;font-size:13px">Baixar PDF</button>'
+        +'<button onclick="document.getElementById(\'preview-pdf-modal\').remove()" style="background:#eee;border:none;padding:7px 14px;border-radius:6px;cursor:pointer;font-size:13px">Fechar</button>'
+        +'</div></div>'
+        +'<iframe id="preview-pdf-frame" style="flex:1;border:none;width:100%"></iframe>'
+        +'</div>';
+      document.body.appendChild(modal);
+      modal.addEventListener('click',function(e){if(e.target===modal)modal.remove();});
+    }
+    document.getElementById('preview-pdf-frame').src=urlPreview;
+    document.getElementById('preview-download-btn').onclick=function(){
+      var a=document.createElement('a');a.href=url;a.download='relatorio.pdf';a.click();
+    };
+    modal.style.display='flex';
+  } else{var a=document.createElement('a');a.href=url;a.download='relatorio.'+formato;a.click();}
 }
   
  
