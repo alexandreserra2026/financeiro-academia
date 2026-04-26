@@ -840,7 +840,18 @@ def chat(payload: dict, usuario=Depends(get_usuario)):
 
 
 if os.path.isdir("static"):
-    app.mount("/static", StaticFiles(directory="static"), name="static")
+    
+@app.delete("/api/admin/reset-dados")
+def reset_dados(admin=Depends(requer_admin)):
+    """Remove todos os lancamentos financeiros (contas_pagar e contas_receber)."""
+    conn = get_db()
+    conn.execute("DELETE FROM contas_pagar")
+    conn.execute("DELETE FROM contas_receber")
+    conn.commit()
+    conn.close()
+    return {"ok": True, "mensagem": "Todos os lancamentos foram removidos."}
+
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 
 @app.get("/")
@@ -1015,6 +1026,23 @@ def start_notif_scheduler():
 def stop_notif_scheduler():
     if _notif_scheduler.running:
         _notif_scheduler.shutdown(wait=False)
+
+@app.get("/{full_path:path}")
+def catch_all(full_path: str):
+    return FileResponse("static/index.html")
+
+
+@app.delete("/api/admin/reset-dados")
+def reset_dados(admin=Depends(requer_admin)):
+    """Remove todos os lancamentos financeiros (contas_pagar e contas_receber)."""
+    conn = get_db()
+    conn.execute("DELETE FROM contas_pagar")
+    conn.execute("DELETE FROM contas_receber")
+    conn.commit()
+    conn.close()
+    return {"ok": True, "mensagem": "Todos os lancamentos foram removidos."}
+
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 @app.get("/{full_path:path}")
 def catch_all(full_path: str):
