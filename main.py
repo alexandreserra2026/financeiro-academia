@@ -750,6 +750,39 @@ def root():
         return FileResponse(index_path)
     return {"ok": True, "app": "Financeiro Academia"}
 
+# ============ NOTIFICAÇÕES ============
+@app.get("/api/notificacoes")
+def get_notificacoes(usuario=Depends(get_usuario)):
+    from datetime import timedelta
+    conn = get_db()
+    hoje = datetime.today().date()
+    em3 = (hoje + timedelta(days=3)).isoformat()
+    hoje_str = hoje.isoformat()
+    fr = " AND restrita=0" if not ve_restritas(usuario) else ""
+
+    vencendo = fetchall_dict(conn,
+        f"SELECT *,'pagar' as tipo FROM contas_pagar WHERE status='aberto' AND vencimento <= ? AND vencimento >= ?{fr} ORDER BY vencimento",
+        (em3, hoje_str))
+    vencendo += fetchall_dict(conn,
+        f"SELECT *,'receber' as tipo FROM contas_receber WHERE status='aberto' AND vencimento <= ? AND vencimento >= ?{fr} ORDER BY vencimento",
+        (em3, hoje_str))
+
+    vencidas = fetchall_dict(conn,
+        f"SELECT *,'pagar' as tipo FROM contas_pagar WHERE status='aberto' AND vencimento < ?{fr} ORDER BY vencimento",
+        (hoje_str,))
+    vencidas += fetchall_dict(conn,
+        f"SELECT *,'receber' as tipo FROM contas_receber WHERE status='aberto' AND vencimento < ?{fr} ORDER BY vencimento",
+        (hoje_str,))
+
+    conn.close()
+    total = len(vencendo) + len(vencidas)
+    return {
+        "total": total,
+        "vencendo": [dict(r) for r in vencendo],
+        "vencidas": [dict(r) for r in vencidas]
+    }
+
+
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 @app.get("/{full_path:path}")

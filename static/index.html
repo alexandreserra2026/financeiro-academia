@@ -309,6 +309,27 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .sec-title{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px}
 @media(max-width:640px){.sidebar{display:none}.main{padding:1rem}.row2,.row3{grid-template-columns:1fr}.charts-grid,.charts-grid-3{grid-template-columns:1fr}}
 
+
+/* NOTIFICACOES */
+.notif-btn{position:relative;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);border-radius:var(--radius);padding:7px 10px;cursor:pointer;color:#fff;font-size:16px;line-height:1;transition:all .15s}
+.notif-btn:hover{background:rgba(255,255,255,.25)}
+.notif-badge{position:absolute;top:-5px;right:-5px;background:#F59E0B;color:#fff;border-radius:999px;font-size:10px;font-weight:700;min-width:17px;height:17px;display:flex;align-items:center;justify-content:center;padding:0 3px;border:2px solid #C0392B}
+.notif-drop{position:absolute;top:52px;right:12px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);width:340px;max-height:420px;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.15);z-index:500;display:none}
+.notif-drop.open{display:block}
+.notif-header{padding:12px 16px;border-bottom:1px solid var(--border);font-size:13px;font-weight:600;display:flex;justify-content:space-between;align-items:center}
+.notif-empty{padding:24px;text-align:center;color:var(--muted);font-size:13px}
+.notif-item{display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .1s}
+.notif-item:hover{background:var(--bg)}
+.notif-item:last-child{border-bottom:none}
+.notif-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.notif-dot.vencida{background:#E74C3C}
+.notif-dot.vencendo{background:#F59E0B}
+.notif-dot.hoje{background:#C0392B}
+.notif-info{flex:1;min-width:0}
+.notif-info .nt{font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.notif-info .nm{font-size:11px;color:var(--muted);margin-top:1px}
+.notif-val{font-size:12px;font-weight:700;white-space:nowrap}
+
 /* MODAL */
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1000;display:none;align-items:center;justify-content:center}
 .modal-overlay.open{display:flex}
@@ -1377,6 +1398,84 @@ function sendChat(){
   });
 }
 function qs(t){document.getElementById('cin').value=t;sendChat();}
+
+
+function toggleNotif() {
+  var d = document.getElementById('notif-drop');
+  d.classList.toggle('open');
+  if(d.classList.contains('open')) loadNotif();
+}
+
+function loadNotif() {
+  api('/api/notificacoes').then(function(r) {
+    if(!r) return;
+    r.json().then(function(data) {
+      var badge = document.getElementById('notif-badge');
+      var list = document.getElementById('notif-list');
+      if(data.total === 0) {
+        badge.style.display = 'none';
+        list.innerHTML = '<div class="notif-empty">✅ Tudo em dia! Nenhum vencimento pendente.</div>';
+        return;
+      }
+      badge.textContent = data.total;
+      badge.style.display = 'flex';
+      var html = '';
+      data.vencidas.forEach(function(c) {
+        var dias = Math.abs(Math.ceil((new Date(c.vencimento+'T00:00:00') - new Date()) / 86400000));
+        html += '<div class="notif-item" onclick="goTo(\''+c.tipo+'\',document.querySelector(\'.nav-item\'));toggleNotif()">' +
+          '<div class="notif-dot vencida"></div>' +
+          '<div class="notif-info"><div class="nt">'+c.descricao+'</div>' +
+          '<div class="nm">⚠️ Vencida há '+dias+' dia(s) · '+(c.tipo==='pagar'?'Pagar':'Receber')+'</div></div>' +
+          '<div class="notif-val" style="color:#E74C3C">'+fmt(c.valor)+'</div>' +
+          '</div>';
+      });
+      data.vencendo.forEach(function(c) {
+        var hoje2 = new Date().toISOString().split('T')[0];
+        var ehHoje = c.vencimento === hoje2;
+        var dias = Math.ceil((new Date(c.vencimento+'T00:00:00') - new Date(hoje2+'T00:00:00')) / 86400000);
+        var cls = ehHoje ? 'hoje' : 'vencendo';
+        var msg = ehHoje ? '🔴 Vence HOJE' : '🟡 Vence em '+dias+' dia(s)';
+        html += '<div class="notif-item" onclick="goTo(\''+c.tipo+'\',document.querySelector(\'.nav-item\'));toggleNotif()">' +
+          '<div class="notif-dot '+cls+'"></div>' +
+          '<div class="notif-info"><div class="nt">'+c.descricao+'</div>' +
+          '<div class="nm">'+msg+' · '+(c.tipo==='pagar'?'Pagar':'Receber')+'</div></div>' +
+          '<div class="notif-val" style="color:#F59E0B">'+fmt(c.valor)+'</div>' +
+          '</div>';
+      });
+      list.innerHTML = html;
+    });
+  });
+}
+
+// Atualiza badge a cada 3 minutos
+function iniciarPollingNotif() {
+  loadNotifBadge();
+  setInterval(loadNotifBadge, 180000);
+}
+
+function loadNotifBadge() {
+  api('/api/notificacoes').then(function(r) {
+    if(!r) return;
+    r.json().then(function(data) {
+      var badge = document.getElementById('notif-badge');
+      if(data.total > 0) {
+        badge.textContent = data.total > 99 ? '99+' : data.total;
+        badge.style.display = 'flex';
+      } else {
+        badge.style.display = 'none';
+      }
+    });
+  });
+}
+
+// Fecha dropdown ao clicar fora
+document.addEventListener('click', function(e) {
+  var drop = document.getElementById('notif-drop');
+  var btn = document.getElementById('notif-btn');
+  if(drop && btn && !drop.contains(e.target) && !btn.contains(e.target)) {
+    drop.classList.remove('open');
+  }
+});
 
 document.getElementById('p-venc').value=today;
 document.getElementById('r-venc').value=today;
