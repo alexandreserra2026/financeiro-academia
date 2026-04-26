@@ -5,6 +5,10 @@ from io import BytesIO
 from typing import Optional, List, Dict, Any
 
 import bcrypt
+import smtplib
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+from apscheduler.schedulers.background import BackgroundScheduler
 from fastapi import FastAPI, HTTPException, Depends, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
@@ -750,8 +754,7 @@ def root():
         return FileResponse(index_path)
     return {"ok": True, "app": "Financeiro Academia"}
 
-# ============ NOTIFICAÇÕES ============
-@app.get("/api/notificacoes")
+# ============ NOTIFICAÇÕES =====@app.get("/api/notificacoes")
 def get_notificacoes(usuario=Depends(get_usuario)):
     from datetime import timedelta
     conn = get_db()
@@ -781,7 +784,6 @@ def get_notificacoes(usuario=Depends(get_usuario)):
         "vencendo": [dict(r) for r in vencendo],
         "vencidas": [dict(r) for r in vencidas]
     }
-
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
