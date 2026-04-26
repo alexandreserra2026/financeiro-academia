@@ -1017,4 +1017,5 @@ def stop_notif_scheduler():
         _notif_scheduler.shutdown(wait=False)
 
 @app.get("/{full_path:path}")
-def catch_all(full_path: str)
+def catch_all(full_path: str):
+    return FileResponse("static/index.html")
