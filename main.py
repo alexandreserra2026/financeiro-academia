@@ -754,7 +754,8 @@ def root():
         return FileResponse(index_path)
     return {"ok": True, "app": "Financeiro Academia"}
 
-# ============ NOTIFICAÇÕES =====@app.get("/api/notificacoes")
+# ============ NOTIFICAÇÕES ============
+@app.get("/api/notificacoes")
 def get_notificacoes(usuario=Depends(get_usuario)):
     from datetime import timedelta
     conn = get_db()
@@ -785,7 +786,141 @@ def get_notificacoes(usuario=Depends(get_usuario)):
         "vencidas": [dict(r) for r in vencidas]
     }
 
-app.mount("/static", StaticFiles(directory="static"), name="static")
+
+# ============ NOTIFICACOES POR EMAIL + WHATSAPP ============
+import smtplib as _smtplib
+from email.mime.multipart import MIMEMultipart as _MIMEMultipart
+from email.mime.text import MIMEText as _MIMEText
+import urllib.request as _urllib_req
+import json as _json
+
+def _fmt_brl(v):
+    try:
+        return "R$ {:,.2f}".format(float(v)).replace(",","X").replace(".",",").replace("X",".")
+    except:
+        return str(v)
+
+def _get_vencimentos():
+    conn = get_db()
+    hoje = datetime.today().date()
+    em3 = (hoje + timedelta(days=3)).isoformat()
+    hoje_str = hoje.isoformat()
+    vencendo = fetchall_dict(conn,
+        "SELECT *,'pagar' as tipo FROM contas_pagar WHERE status='aberto' AND vencimento <= ? AND vencimento >= ? ORDER BY vencimento",
+        (em3, hoje_str))
+    vencendo += fetchall_dict(conn,
+        "SELECT *,'receber' as tipo FROM contas_receber WHERE status='aberto' AND vencimento <= ? AND vencimento >= ? ORDER BY vencimento",
+        (em3, hoje_str))
+    vencidas = fetchall_dict(conn,
+        "SELECT *,'pagar' as tipo FROM contas_pagar WHERE status='aberto' AND vencimento < ? ORDER BY vencimento",
+        (hoje_str,))
+    vencidas += fetchall_dict(conn,
+        "SELECT *,'receber' as tipo FROM contas_receber WHERE status='aberto' AND vencimento < ? ORDER BY vencimento",
+        (hoje_str,))
+    conn.close()
+    return hoje, vencendo, vencidas
+
+def enviar_email_notificacoes():
+    email_from = os.getenv("EMAIL_FROM")
+    email_pass = os.getenv("EMAIL_PASSWORD")
+    if not email_from or not email_pass:
+        return
+    try:
+        conn = get_db()
+        hoje, vencendo, vencidas = _get_vencimentos()
+        total = len(vencendo) + len(vencidas)
+        if total == 0:
+            return
+        fixos = [e.strip() for e in os.getenv("EMAIL_TO","").split(",") if e.strip()]
+        usuarios_notif = fetchall_dict(conn,
+            "SELECT email FROM usuarios WHERE perfil IN ('admin','gestor','gerente') AND ativo=1")
+        conn.close()
+        destinatarios = list(set(fixos + [u["email"] for u in usuarios_notif if u.get("email")]))
+        if not destinatarios:
+            return
+        def _row(c, cor):
+            tipo_txt = "A Pagar" if c.get("tipo")=="pagar" else "A Receber"
+            return (f"<tr><td style='padding:6px 10px;border-bottom:1px solid #eee'>{c.get('descricao','')}</td>"
+                    f"<td style='padding:6px 10px;border-bottom:1px solid #eee;color:#666'>{c.get('vencimento','')}</td>"
+                    f"<td style='padding:6px 10px;border-bottom:1px solid #eee;color:{cor};font-weight:bold'>{_fmt_brl(c.get('valor',0))}</td>"
+                    f"<td style='padding:6px 10px;border-bottom:1px solid #eee;color:#999;font-size:11px'>{tipo_txt}</td></tr>")
+        rows_v = "".join(_row(c,"#E74C3C") for c in vencidas)
+        rows_p = "".join(_row(c,"#F59E0B") for c in vencendo)
+        sec_v = (f"<h3 style='color:#E74C3C'>&#9888; Contas Vencidas ({len(vencidas)})</h3>"
+                 f"<table width='100%' style='border-collapse:collapse;font-size:13px'>{rows_v}</table>") if vencidas else ""
+        sec_p = (f"<h3 style='color:#F59E0B'>&#128276; Vencem nos Proximos 3 Dias ({len(vencendo)})</h3>"
+                 f"<table width='100%' style='border-collapse:collapse;font-size:13px'>{rows_p}</table>") if vencendo else ""
+        data_str = hoje.strftime("%d/%m/%Y")
+        html_body = (f"<div style='font-family:Arial,sans-serif;max-width:640px;margin:0 auto'>"
+                     f"<div style='background:#C0392B;padding:20px;color:#fff'><h2 style='margin:0'>Body Finance - Alertas</h2><p style='margin:4px 0 0'>{data_str}</p></div>"
+                     f"<div style='padding:24px'>{sec_v}{sec_p}"
+                     f"<p style='margin:20px 0 0;font-size:12px;color:#999'><a href='https://bodyfinance.up.railway.app/' style='color:#C0392B'>Acessar sistema</a></p>"
+                     f"</div></div>")
+        msg = _MIMEMultipart("alternative")
+        msg["Subject"] = f"[Body Finance] {total} alerta(s) - {data_str}"
+        msg["From"] = f"Body Finance <{email_from}>"
+        msg["To"] = ", ".join(destinatarios)
+        msg.attach(_MIMEText(html_body, "html", "utf-8"))
+        with _smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=15) as srv:
+            srv.login(email_from, email_pass)
+            srv.sendmail(email_from, destinatarios, msg.as_string())
+        print(f"[EMAIL] Enviado para {len(destinatarios)} destinatario(s)")
+    except Exception as e:
+        print(f"[EMAIL] Erro: {e}")
+
+def enviar_whatsapp_notificacoes():
+    instance_id = os.getenv("ZAPI_INSTANCE_ID")
+    token = os.getenv("ZAPI_INSTANCE_TOKEN")
+    client_token = os.getenv("ZAPI_CLIENT_TOKEN")
+    phones_str = os.getenv("WHATSAPP_PHONES","")
+    if not instance_id or not token or not phones_str:
+        return
+    try:
+        hoje, vencendo, vencidas = _get_vencimentos()
+        total = len(vencendo) + len(vencidas)
+        if total == 0:
+            return
+        data_str = hoje.strftime("%d/%m/%Y")
+        linhas = [f"*Body Finance - Alertas* ({data_str})"]
+        if vencidas:
+            linhas.append(f"\n*\u26a0\ufe0f Contas Vencidas ({len(vencidas)}):*")
+            for c in vencidas:
+                linhas.append(f"  - {c.get('descricao','')} | {c.get('vencimento','')} | {_fmt_brl(c.get('valor',0))}")
+        if vencendo:
+            linhas.append(f"\n*\U0001f514 Vencem em ate 3 dias ({len(vencendo)}):*")
+            for c in vencendo:
+                linhas.append(f"  - {c.get('descricao','')} | {c.get('vencimento','')} | {_fmt_brl(c.get('valor',0))}")
+        linhas.append("\nhttps://bodyfinance.up.railway.app/")
+        mensagem = "\n".join(linhas)
+        phones = [p.strip() for p in phones_str.split(",") if p.strip()]
+        url = f"https://api.z-api.io/instances/{instance_id}/send-text"
+        for phone in phones:
+            payload = _json.dumps({"phone": phone, "message": mensagem}).encode("utf-8")
+            req = _urllib_req.Request(url, data=payload, method="POST")
+            req.add_header("Content-Type", "application/json")
+            req.add_header("Authorization", f"Bearer {token}")
+            req.add_header("Client-Token", client_token)
+            with _urllib_req.urlopen(req, timeout=15) as resp:
+                print(f"[WHATSAPP] Enviado para {phone}: {resp.status}")
+    except Exception as e:
+        print(f"[WHATSAPP] Erro: {e}")
+
+def _enviar_todas_notificacoes():
+    enviar_email_notificacoes()
+    enviar_whatsapp_notificacoes()
+
+_notif_scheduler = BackgroundScheduler(timezone="America/Sao_Paulo")
+_notif_scheduler.add_job(_enviar_todas_notificacoes, "cron", hour=8, minute=0)
+
+@app.on_event("startup")
+def start_notif_scheduler():
+    _notif_scheduler.start()
+    print("[NOTIF] Scheduler iniciado - envio diario as 08:00 (email + whatsapp)")
+
+@app.on_event("shutdown")
+def stop_notif_scheduler():
+    if _notif_scheduler.running:
+        _notif_scheduler.shutdown(wait=False)
 
 @app.get("/{full_path:path}")
 def catch_all(full_path: str):
