@@ -839,8 +839,6 @@ def chat(payload: dict, usuario=Depends(get_usuario)):
     return {"resposta": "Agente IA em revisão técnica. Os dados financeiros seguem disponíveis nos relatórios, DRE e dashboard."}
 
 
-if os.path.isdir("static"):
-    
 @app.delete("/api/admin/reset-dados")
 def reset_dados(admin=Depends(requer_admin)):
     """Remove todos os lancamentos financeiros (contas_pagar e contas_receber)."""
@@ -1020,29 +1018,10 @@ _notif_scheduler.add_job(_enviar_todas_notificacoes, "cron", hour=8, minute=0)
 @app.on_event("startup")
 def start_notif_scheduler():
     _notif_scheduler.start()
-    print("[NOTIF] Scheduler iniciado - envio diario as 08:00 (email + whatsapp)")
 
 @app.on_event("shutdown")
 def stop_notif_scheduler():
-    if _notif_scheduler.running:
-        _notif_scheduler.shutdown(wait=False)
-
-@app.get("/{full_path:path}")
-def catch_all(full_path: str):
-    return FileResponse("static/index.html")
-
-
-@app.delete("/api/admin/reset-dados")
-def reset_dados(admin=Depends(requer_admin)):
-    """Remove todos os lancamentos financeiros (contas_pagar e contas_receber)."""
-    conn = get_db()
-    conn.execute("DELETE FROM contas_pagar")
-    conn.execute("DELETE FROM contas_receber")
-    conn.commit()
-    conn.close()
-    return {"ok": True, "mensagem": "Todos os lancamentos foram removidos."}
-
-app.mount("/static", StaticFiles(directory="static"), name="static")
+    _notif_scheduler.shutdown()
 
 @app.get("/{full_path:path}")
 def catch_all(full_path: str):
