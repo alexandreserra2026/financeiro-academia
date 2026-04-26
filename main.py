@@ -496,6 +496,7 @@ def gerar_relatorio(tipo: str, formato: str, data_inicio: str, data_fim: str,
         "contas a pagar": "financeiro", "contas_a_pagar": "financeiro", "pagar": "financeiro",
         "contas a receber": "financeiro", "contas_a_receber": "financeiro", "receber": "financeiro",
         "inadimplencia": "financeiro", "inadimplência": "financeiro", "inadimplentes": "financeiro",
+        "resumo": "financeiro", "resumo gerencial": "financeiro",
     }
     tipo = aliases.get(tipo, tipo)
 
@@ -518,6 +519,7 @@ def gerar_relatorio(tipo: str, formato: str, data_inicio: str, data_fim: str,
 
     if tipo not in {"financeiro", "dre", "fluxo"}:
         raise HTTPException(400, "Tipo de relatório inválido. Use: financeiro, resumo gerencial, fluxo de caixa, DRE, contas a pagar, contas a receber ou inadimplência.")
+    formato = "excel" if formato == "xlsx" else formato
     if formato not in {"pdf", "excel"}:
         raise HTTPException(400, "Formato inválido. Use: pdf ou excel.")
     if not data_inicio or not data_fim:

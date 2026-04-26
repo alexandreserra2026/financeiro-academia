@@ -1141,8 +1141,14 @@ function gerarRel(){
     dataInicio = trimAtras.toISOString().split('T')[0];
   }
   
-  var url='/api/relatorios?tipo='+tipo+'&formato='+formato+'&data_inicio='+dataInicio+'&data_fim='+dataFim;
-  
+  // CSV usa o endpoint /api/relatorio/{tipo} que suporta csv
+  if(formato==='csv'){
+    var urlCsv='/api/relatorio/'+tipo+'?formato=csv&data_ini='+dataInicio+'&data_fim='+dataFim+'&periodo=personalizado';
+    var a=document.createElement('a');a.href=urlCsv;a.download='relatorio.csv';a.click();return;
+  }
+  var fmtEnv=formato==='xlsx'?'excel':formato;
+  var url='/api/relatorios?tipo='+tipo+'&formato='+fmtEnv+'&data_inicio='+dataInicio+'&data_fim='+dataFim;
+
   if(formato==='pdf')window.open(url,'_blank');
   else{var a=document.createElement('a');a.href=url;a.download='relatorio.'+formato;a.click();}
 }
@@ -1151,7 +1157,9 @@ function gerarRel(){
 function previewRel(){
   var tipo=document.getElementById('rel-tipo').value, periodo=document.getElementById('rel-periodo').value;
   var ini=document.getElementById('rel-ini').value, fim=document.getElementById('rel-fim').value;
-  var url='/api/relatorios?tipo='+tipo+'?formato=pdf&periodo='+periodo;
+  var hoje2=new Date(),mesAtras2=new Date(hoje2);mesAtras2.setMonth(hoje2.getMonth()-1);
+  var dIni=ini||mesAtras2.toISOString().split('T')[0], dFim=fim||hoje2.toISOString().split('T')[0];
+  var url='/api/relatorios?tipo='+tipo+'&formato=pdf&data_inicio='+dIni+'&data_fim='+dFim;
   if(periodo==='personalizado'&&ini&&fim)url+='&data_ini='+ini+'&data_fim='+fim;
   window.open(url,'_blank');
 }
