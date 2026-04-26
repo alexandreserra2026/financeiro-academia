@@ -747,3 +747,9 @@ def root():
     if os.path.exists(index_path):
         return FileResponse(index_path)
     return {"ok": True, "app": "Financeiro Academia"}
+
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+@app.get("/{full_path:path}")
+def catch_all(full_path: str):
+    return FileResponse("static/index.html")

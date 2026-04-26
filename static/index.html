@@ -4,8 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>Dashboard — Body Fitness Finance</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js">
-    
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script>
     async function carregarDRE() {
       const mes = document.getElementById('dreMes').value;
       const ano = document.getElementById('dreAno').value;
@@ -829,7 +829,7 @@ function loadDash() {
     if(dEl) dEl.textContent = now.toLocaleDateString('pt-BR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
     document.getElementById('kpis').innerHTML =
       '<div class="kcard"><div class="lbl">A Receber</div><div class="val pos">'+fmt(resumo.a_receber)+'</div><div class="sub"><span class="trend up">&#8593; Previsto</span></div></div>' +
-      '<div class="kcard red"><div class="lbl">A Pagar</div><div class="val neg">'+fmt(resumo.a_pagar)+'</div><div class="sub"><span class="trend '+(resumo.vencidos_pagar>0?'down':'neutral')+'">'+data.vencidos_pagar+' vencidos</span></div></div>' +
+      '<div class="kcard red"><div class="lbl">A Pagar</div><div class="val neg">'+fmt(resumo.a_pagar)+'</div><div class="sub"><span class="trend '+(resumo.vencidos_pagar>0?'down':'neutral')+'">'+resumo.vencidos_pagar+' vencidos</span></div></div>' +
       '<div class="kcard '+(saldo<0?'red':'')+'"><div class="lbl">Saldo Previsto</div><div class="val '+(saldo>=0?'pos':'neg')+'">'+fmt(saldo)+'</div><div class="sub"><span class="trend '+trendSaldo+'">'+(saldo>=0?'&#8593; Positivo':'&#8595; Negativo')+'</span></div></div>' +
       '<div class="kcard"><div class="lbl">Recebido</div><div class="val pos">'+fmt(resumo.recebido_mes)+'</div><div class="sub"><span class="trend neutral">Realizado</span></div></div>' +
       '<div class="kcard red"><div class="lbl">Pago</div><div class="val neg">'+fmt(resumo.pago_mes)+'</div><div class="sub"><span class="trend neutral">Realizado</span></div></div>' +
@@ -915,16 +915,16 @@ function loadDash() {
     var saldoEl = document.getElementById('saldo-atual');
     if(saldoEl) { saldoEl.textContent = fmt(saldo); saldoEl.style.color = saldo>=0?'var(--green)':'var(--red)'; }
     var list = document.getElementById('venc-list');
-    if(!data.proximos_vencimentos || !data.proximos_vencimentos.length) {
+    if(!resumo.proximos_vencimentos || !resumo.proximos_vencimentos.length) {
       list.innerHTML = '<div class="empty">&#10003; Nenhum vencimento nos próximos 7 dias</div>'; return;
     }
     var html = '';
-    data.proximos_vencimentos.forEach(function(c) {
+    resumo.proximos_vencimentos.forEach(function(c) {
       var d = daysFrom(c.vencimento);
       var dstr = d<0 ? '<span style="color:var(--red);font-weight:600">VENCIDO</span>' : d===0 ? '<span style="color:var(--amber)">Hoje</span>' : 'em '+d+' dias';
       html += '<div class="venc-item">' +
         '<span class="badge '+(c.tipo==='pagar'?(d<0?'vencido':'pagar'):'receber')+'">'+(c.tipo==='pagar'?'Pagar':'Receber')+'</span>' +
-        '<div class="d"><div class="t">'+c.desc+'</div><div class="m">'+c.categoria+' · '+fmtD(c.vencimento)+' · '+dstr+'</div></div>' +
+        '<div class="d"><div class="t">'+c.descricao+'</div><div class="m">'+c.categoria+' · '+fmtD(c.vencimento)+' · '+dstr+'</div></div>' +
         '<div class="v '+(c.tipo==='pagar'?'neg':'pos')+'">'+fmt(c.valor)+'</div>' +
         '</div>';
     });
@@ -973,11 +973,12 @@ function loadLista(tipo) {
         var statusLabel = c.status==='recebido'?'Recebido':c.status==='pago'?'Pago':c.status==='vencido'?'Vencido':'Em aberto';
         var btnBaixar = podeEditar&&c.status!==pKey ? '<button class="btn sm primary" onclick="marcar('+c.id+',\''+tipo+'\',\''+novoStatus+'\')">'+( tipo==='pagar'?'Baixar':'Receber')+'</button>' : '';
         var btnComp = '<button class="btn-comp'+(c.comprovante?' has':'')+'" onclick="toggleComprovante('+c.id+',\''+tipo+'\','+(c.comprovante?'true':'false')+')">'+( c.comprovante?'📎 Ver':'📎 Anexar')+'</button>';
+        var btnVer = '<button class="btn sm" onclick="verConta('+c.id+',\''+tipo+'\')">' + 'Ver</button>';
         var btnExcluir = podeExcluir ? '<button class="btn sm danger" onclick="deletar('+c.id+',\''+tipo+'\')">Excluir</button>' : '';
         var restrita = c.restrita ? '<span class="status-badge restrita">Restrita</span>' : '';
         html += '<div class="card"><div class="item">' +
           '<span class="status-badge '+c.status+'">'+statusLabel+'</span>'+restrita+
-          '<div class="d"><div class="t">'+c.desc+'</div><div class="m">'+c.categoria+' · '+fmtD(c.vencimento)+atraso+'</div></div>' +
+          '<div class="d"><div class="t">'+c.descricao+'</div><div class="m">'+c.categoria+' · '+fmtD(c.vencimento)+atraso+'</div></div>' +
           '<div class="vv '+(tipo==='pagar'?'neg':'pos')+'">'+fmt(c.valor)+'</div>' +
           '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">'+btnVer+btnBaixar+btnComp+btnExcluir+'</div>' +
           '</div></div>';
@@ -1256,9 +1257,9 @@ function verConta(id, tipo) {
     if(!c) return;
     var statusLabel = c.status==='recebido'?'Recebido':c.status==='pago'?'Pago':c.status==='vencido'?'Vencido':'Em aberto';
     var title = tipo==='pagar' ? 'Conta a Pagar' : 'Conta a Receber';
-    document.getElementById('modal-title').textContent = title + ' — ' + c.desc;
+    document.getElementById('modal-title').textContent = title + ' — ' + c.descricao;
     var rows = [
-      ['Descrição', c.desc],
+      ['Descrição', c.descricao],
       ['Categoria', c.categoria],
       ['Valor', fmt(c.valor)],
       ['Vencimento', fmtD(c.vencimento)],
@@ -1355,7 +1356,7 @@ function sendChat(){
   var tp=document.createElement('div'); tp.className='msg ag';
   tp.innerHTML='<span class="dot"></span><span class="dot"></span><span class="dot"></span>';
   msgs.appendChild(tp); msgs.scrollTop=msgs.scrollHeight;
-  Promise.all([api('/api/dashboard').then(function(r){return r.json();}),api('/api/dre').then(function(r){return r.json();})]).then(function(results){
+  Promise.all([api('/api/resumo').then(function(r){return r.json();}),api('/api/dre').then(function(r){return r.json();})]).then(function(results){
     var resumo=results[0], dre=results[1];
     var ctx='Você é o agente financeiro de uma academia. A pagar: R$'+resumo.a_pagar.toFixed(2)+', a receber: R$'+resumo.a_receber.toFixed(2)+', saldo: R$'+resumo.saldo_previsto.toFixed(2)+'. Receita: R$'+dre.receita_bruta.toFixed(2)+', resultado: R$'+dre.resultado.toFixed(2)+', margem: '+dre.margem+'%. Vencidos: '+resumo.vencidos_pagar+'. Responda em português de forma direta e objetiva.';
     fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,system:ctx,messages:[{role:'user',content:msg}]})})
@@ -1379,197 +1380,6 @@ fetch('/api/me').then(function(r){
   else showLogin();
 }).catch(function(){showLogin();});
 
-    
-    async function carregarDRE() {
-      const mes = document.getElementById('dreMes').value;
-      const ano = document.getElementById('dreAno').value;
-      
-      try {
-        const resp = await fetch(`/api/dre?mes=${mes}&ano=${ano}`);
-        const dre = await resp.json();
-        
-        // Receitas
-        let receitasHtml = '';
-        for (let cat in dre.receitas_por_categoria) {
-          receitasHtml += `<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #e9ecef">
-            <span style="color:#555">${cat}</span>
-            <span style="font-weight:600">R$ ${dre.receitas_por_categoria[cat].toLocaleString('pt-BR', {minimumFractionDigits:2})}</span>
-          </div>`;
-        }
-        document.getElementById('dreReceitas').innerHTML = receitasHtml;
-        document.getElementById('dreTotalReceitas').textContent = 
-          'R$ ' + dre.total_receitas.toLocaleString('pt-BR', {minimumFractionDigits:2});
-        
-        // Despesas
-        let despesasHtml = '';
-        for (let cat in dre.despesas_por_categoria) {
-          despesasHtml += `<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #e9ecef">
-            <span style="color:#555">${cat}</span>
-            <span style="font-weight:600">R$ ${dre.despesas_por_categoria[cat].toLocaleString('pt-BR', {minimumFractionDigits:2})}</span>
-          </div>`;
-        }
-        document.getElementById('dreDespesas').innerHTML = despesasHtml;
-        document.getElementById('dreTotalDespesas').textContent = 
-          'R$ ' + dre.total_despesas.toLocaleString('pt-BR', {minimumFractionDigits:2});
-        
-        // Resultado
-        const resultado = dre.total_receitas - dre.total_despesas;
-        const margem = dre.total_receitas > 0 ? ((resultado / dre.total_receitas) * 100).toFixed(1) : 0;
-        
-        document.getElementById('dreResultado').textContent = 
-          'R$ ' + resultado.toLocaleString('pt-BR', {minimumFractionDigits:2});
-        document.getElementById('dreResultado').style.color = resultado >= 0 ? '#27AE60' : '#E74C3C';
-        document.getElementById('dreMargem').textContent = margem + '%';
-        
-        // Gráfico comparativo
-        const ctx = document.getElementById('dreChart');
-        if (window.dreChartInstance) window.dreChartInstance.destroy();
-        
-        window.dreChartInstance = new Chart(ctx, {
-          type: 'bar',
-          data: {
-            labels: dre.comparativo_meses || ['Jan', 'Fev', 'Mar', 'Abr'],
-            datasets: [{
-              label: 'Receitas',
-              data: dre.comparativo_receitas || [38500, 42300, 40100, 45280],
-              backgroundColor: '#27AE60'
-            }, {
-              label: 'Despesas',
-              data: dre.comparativo_despesas || [33800, 35200, 33900, 32150],
-              backgroundColor: '#E74C3C'
-            }]
-          },
-          options: {
-            responsive: true,
-            maintainAspectRatio: true,
-            plugins: {
-              legend: { position: 'top' }
-            }
-          }
-        });
-        
-      } catch (err) {
-        alert('Erro ao carregar DRE: ' + err.message);
-      }
-    }
-    
-    function exportarDRE() {
-      alert('Funcionalidade de exportação PDF será implementada em breve!');
-    }
-
-  
-    
-    async function gerarRelatorio(tipo, formato) {
-      const dataInicio = document.getElementById('relDataInicio').value;
-      const dataFim = document.getElementById('relDataFim').value;
-      const tipoConta = document.getElementById('relTipo').value;
-      const status = document.getElementById('relStatus').value;
-      
-      if (!dataInicio || !dataFim) {
-        alert('Por favor, selecione o período do relatório');
-        return;
-      }
-      
-      const params = new URLSearchParams({
-        tipo: tipo,
-        formato: formato,
-        data_inicio: dataInicio,
-        data_fim: dataFim,
-        tipo_conta: tipoConta,
-        status: status
-      });
-      
-      try {
-        const response = await fetch('/api/relatorios?' + params);
-        
-        if (formato === 'pdf' || formato === 'excel') {
-          const blob = await response.blob();
-          const url = window.URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = `relatorio_${tipo}_${dataInicio}_${dataFim}.${formato === 'pdf' ? 'pdf' : 'xlsx'}`;
-          document.body.appendChild(a);
-          a.click();
-          window.URL.revokeObjectURL(url);
-          document.body.removeChild(a);
-        }
-      } catch (err) {
-        alert('Erro ao gerar relatório: ' + err.message);
-      }
-    }
-    
-    // Definir datas padrão (último mês)
-    function initRelatoriosDates() {
-      const dataFim = document.getElementById('relDataFim');
-      const dataInicio = document.getElementById('relDataInicio');
-      
-      if (dataFim && dataInicio) {
-        const hoje = new Date();
-        const umMesAtras = new Date(hoje.getFullYear(), hoje.getMonth() - 1, hoje.getDate());
-        
-        dataFim.value = hoje.toISOString().split('T')[0];
-        dataInicio.value = umMesAtras.toISOString().split('T')[0];
-      }
-    }
-
-
-  
-    
-    async function gerarRelatorio(tipo, formato) {
-      const dataInicio = document.getElementById('relDataInicio').value;
-      const dataFim = document.getElementById('relDataFim').value;
-      const tipoConta = document.getElementById('relTipo').value;
-      const status = document.getElementById('relStatus').value;
-      
-      if (!dataInicio || !dataFim) {
-        alert('Por favor, selecione o período do relatório');
-        return;
-      }
-      
-      const params = new URLSearchParams({
-        tipo: tipo,
-        formato: formato === 'excel' ? 'xlsx' : formato,
-        data_inicio: dataInicio,
-        data_fim: dataFim,
-        tipo_conta: tipoConta,
-        status: status
-      });
-      
-      try {
-        const response = await fetch('/api/relatorios?' + params);
-        
-        if (formato === 'pdf' || formato === 'excel') {
-          const blob = await response.blob();
-          const url = window.URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = `relatorio_${tipo}_${dataInicio}_${dataFim}.${formato === 'pdf' ? 'pdf' : 'xlsx'}`;
-          document.body.appendChild(a);
-          a.click();
-          window.URL.revokeObjectURL(url);
-          document.body.removeChild(a);
-        }
-      } catch (err) {
-        alert('Erro ao gerar relatório: ' + err.message);
-      }
-    }
-    
-    // Definir datas padrão (último mês) - só quando elementos existirem
-    document.addEventListener('DOMContentLoaded', () => {
-      setTimeout(() => {
-        const dataFim = document.getElementById('relDataFim');
-        const dataInicio = document.getElementById('relDataInicio');
-        
-        if (dataFim && dataInicio) {
-          const hoje = new Date();
-          const umMesAtras = new Date(hoje.getFullYear(), hoje.getMonth() - 1, hoje.getDate());
-          
-          dataFim.value = hoje.toISOString().split('T')[0];
-          dataInicio.value = umMesAtras.toISOString().split('T')[0];
-        }
-      }, 500);
-    });
-
-  </script>
+</script>
 </body>
 </html>
