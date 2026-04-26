@@ -755,8 +755,7 @@ def root():
         return FileResponse(index_path)
     return {"ok": True, "app": "Financeiro Academia"}
 
-# ============ NOTIFICAÇÕES ============
-@app.get("/api/notificacoes")
+# ============ NOTIFICAÇÕES =====@app.get("/api/notificacoes")
 def get_notificacoes(usuario=Depends(get_usuario)):
     from datetime import timedelta
     conn = get_db()
@@ -788,8 +787,7 @@ def get_notificacoes(usuario=Depends(get_usuario)):
     }
 
 
-# ============ NOTIFICACOES POR EMAIL + WHATSAPP ============
-import smtplib as _smtplib
+# ============ NOTIFICACOES POR EMAIL + WHATSAPP =====import smtplib as _smtplib
 from email.mime.multipart import MIMEMultipart as _MIMEMultipart
 from email.mime.text import MIMEText as _MIMEText
 import urllib.request as _urllib_req
@@ -922,6 +920,12 @@ def start_notif_scheduler():
 def stop_notif_scheduler():
     if _notif_scheduler.running:
         _notif_scheduler.shutdown(wait=False)
+
+@app.get("/{full_path:path}")
+def catch_all(full_path: str):
+    return FileResponse("static/index.html")
+
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 @app.get("/{full_path:path}")
 def catch_all(full_path: str):
