@@ -473,7 +473,7 @@ def get_dre(mes: int = None, ano: int = None, usuario=Depends(get_usuario)):
 
 @app.get("/api/relatorios")
 def gerar_relatorio(tipo: str, formato: str, data_inicio: str, data_fim: str,
-                    tipo_conta: str = "todos", status: str = "todos", usuario=Depends(get_usuario)):
+                    tipo_conta: str = "todos", status: str = "todos", preview: int = 0, usuario=Depends(get_usuario)):
     """
     Relatórios separados por finalidade:
     - financeiro: listagem detalhada de receitas/despesas no período.
@@ -730,7 +730,8 @@ def gerar_relatorio(tipo: str, formato: str, data_inicio: str, data_fim: str,
     story.append(table)
     doc.build(story)
     bio.seek(0)
-    return StreamingResponse(bio, media_type="application/pdf", headers={"Content-Disposition": f"attachment; filename={filename('pdf')}"})
+    disp = "inline" if preview else "attachment"
+    return StreamingResponse(bio, media_type="application/pdf", headers={"Content-Disposition": f"{disp}; filename={filename('pdf')}"})
 
 
 @app.get("/api/migrate2")
