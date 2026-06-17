@@ -1,88 +1,88 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Este arquivo fornece orientações ao Claude Code (claude.ai/code) ao trabalhar com o código deste repositório.
 
-## Commands
+## Comandos
 
 ```bash
-# Install dependencies
+# Instalar dependências
 pip install -r requirements.txt
 
-# Run the development server (auto-reload on changes)
+# Rodar o servidor de desenvolvimento (recarrega automaticamente)
 uvicorn main:app --reload
 
-# Access the app
+# Acessar a aplicação
 # http://localhost:8000
 ```
 
-There is no test suite or linter configured. The app is a single-file FastAPI backend with a static HTML frontend.
+Não há suíte de testes nem linter configurado. A aplicação é um backend FastAPI em arquivo único com frontend HTML estático.
 
-## Architecture
+## Arquitetura
 
-This is a financial management system ("financeiro") for a gym ("academia") named **Body Fitness**. It is a monolithic FastAPI application deployed on Railway with a pure HTML/JS frontend.
+Este é um sistema de gestão financeira ("financeiro") para uma academia chamada **Body Fitness**. É uma aplicação FastAPI monolítica hospedada no Railway com frontend em HTML/JS puro.
 
-### Key files
+### Arquivos principais
 
-- **`main.py`** — The entire backend: FastAPI app, all API routes, auth, report generation (PDF/Excel), and the scheduled notification jobs. ~1000 lines.
-- **`database.py`** — Database connection abstraction: returns either a PostgreSQL connection (production on Railway) or SQLite (local dev). Also defines `init_postgres_tables()` for PostgreSQL schema creation.
-- **`relatorios.py`** — Legacy CSV/XLSX/HTML report helpers (mostly superseded by the in-`main.py` report logic; not imported by `main.py`).
-- **`static/index.html`** — The complete frontend (single-page app, vanilla JS + Chart.js, no build step).
+- **`main.py`** — O backend completo: app FastAPI, todas as rotas da API, autenticação, geração de relatórios (PDF/Excel) e os jobs de notificação agendados. ~1000 linhas.
+- **`database.py`** — Abstração de conexão com o banco: retorna uma conexão PostgreSQL (produção no Railway) ou SQLite (dev local). Também define `init_postgres_tables()` para criação do schema no PostgreSQL.
+- **`relatorios.py`** — Helpers legados de relatórios em CSV/XLSX/HTML (em grande parte substituídos pela lógica de relatórios dentro do `main.py`; não é importado por `main.py`).
+- **`static/index.html`** — O frontend completo (single-page app, JS puro + Chart.js, sem etapa de build).
 
-### Database dual-mode pattern
+### Padrão dual de banco de dados
 
-The app detects `DATABASE_URL` env var at startup to choose the backend:
+A aplicação detecta a variável de ambiente `DATABASE_URL` na inicialização para escolher o backend:
 
-- **No `DATABASE_URL`** → SQLite (`financeiro.db`, local file)
-- **`DATABASE_URL` set** → PostgreSQL (Railway)
+- **Sem `DATABASE_URL`** → SQLite (`financeiro.db`, arquivo local)
+- **`DATABASE_URL` definida** → PostgreSQL (Railway)
 
-All queries go through four helper functions in `main.py` that abstract over this difference:
-- `execute_query()` — replaces `?` with `%s` for PostgreSQL
-- `fetchall_dict()` — returns `List[Dict]` for both drivers
-- `fetchone_dict()` — returns `Dict | None`
-- `scalar()` — returns a single value
+Todas as queries passam por quatro funções auxiliares em `main.py` que abstraem essa diferença:
+- `execute_query()` — substitui `?` por `%s` para o PostgreSQL
+- `fetchall_dict()` — retorna `List[Dict]` para ambos os drivers
+- `fetchone_dict()` — retorna `Dict | None`
+- `scalar()` — retorna um único valor
 
-When adding queries, always use `?` as the placeholder (the helpers handle the rewrite). Never call `conn.execute()` directly outside `relatorios.py`.
+Ao adicionar queries, sempre use `?` como placeholder (os helpers fazem a substituição). Nunca chame `conn.execute()` diretamente fora de `relatorios.py`.
 
-### Auth
+### Autenticação
 
-Session-based auth stored in the `sessoes` table. Sessions are valid for 12 hours. The token is accepted as an HTTP-only cookie (`token`) **or** an `Authorization: Bearer <token>` header.
+Auth baseada em sessão armazenada na tabela `sessoes`. Sessões são válidas por 12 horas. O token é aceito como cookie HTTP-only (`token`) **ou** cabeçalho `Authorization: Bearer <token>`.
 
-Three permission levels enforced via FastAPI `Depends`:
-- `get_usuario` — any authenticated user (read-only operations)
-- `pode_editar` — `editor` or `admin` (create/update)
-- `requer_admin` — `admin` only (delete, user management, restricted entries)
+Três níveis de permissão via FastAPI `Depends`:
+- `get_usuario` — qualquer usuário autenticado (operações de leitura)
+- `pode_editar` — `editor` ou `admin` (criar/atualizar)
+- `requer_admin` — somente `admin` (deletar, gestão de usuários, lançamentos restritos)
 
-Restricted entries (`restrita=1`) are hidden from non-admin users via `filtro_restritas()` which injects a `AND restrita=0` SQL clause.
+Lançamentos restritos (`restrita=1`) são ocultados de usuários não-admin via `filtro_restritas()`, que injeta a cláusula SQL `AND restrita=0`.
 
-### Admin bootstrap
+### Bootstrap do admin
 
-If `ADMIN_EMAIL` and `ADMIN_PASSWORD` env vars are set at startup, `init_db()` creates an admin user automatically if it doesn't exist yet.
+Se as variáveis `ADMIN_EMAIL` e `ADMIN_PASSWORD` estiverem definidas na inicialização, `init_db()` cria um usuário admin automaticamente caso ele ainda não exista.
 
-### Report generation (`/api/relatorios`)
+### Geração de relatórios (`/api/relatorios`)
 
-The endpoint accepts `tipo` (financeiro, dre, fluxo, and several aliases like "contas a pagar", "inadimplencia") and `formato` (pdf or excel). PDF is generated with ReportLab; Excel with openpyxl. Both are streamed directly as `StreamingResponse`.
+O endpoint aceita `tipo` (financeiro, dre, fluxo, e vários aliases como "contas a pagar", "inadimplencia") e `formato` (pdf ou excel). O PDF é gerado com ReportLab; o Excel com openpyxl. Ambos são transmitidos diretamente como `StreamingResponse`.
 
-### Scheduled notifications
+### Notificações agendadas
 
-APScheduler runs a background job daily at 08:00 (America/Sao_Paulo) that sends email (Gmail SMTP) and WhatsApp (Z-API) alerts about overdue and soon-due accounts. Configured via env vars:
+O APScheduler executa um job diário às 08:00 (America/Sao_Paulo) que envia alertas por e-mail (Gmail SMTP) e WhatsApp (Z-API) sobre contas vencidas e próximas do vencimento. Configurado via variáveis de ambiente:
 - `EMAIL_FROM`, `EMAIL_PASSWORD`, `EMAIL_TO`
 - `ZAPI_INSTANCE_ID`, `ZAPI_INSTANCE_TOKEN`, `ZAPI_CLIENT_TOKEN`, `WHATSAPP_PHONES`
 
-### Utility/migration scripts
+### Scripts utilitários/de migração
 
-The `fix_*.py`, `corrigir.py`, `atualizar.py`, `migrar_config.py`, and similar scripts in the root are one-off migration helpers and are **not part of the running application**. They were used to patch the database or `main.py` during development. Do not import or rely on them.
+Os arquivos `fix_*.py`, `corrigir.py`, `atualizar.py`, `migrar_config.py` e similares na raiz são helpers de migração pontuais e **não fazem parte da aplicação em execução**. Foram usados para corrigir o banco ou o `main.py` durante o desenvolvimento. Não os importe nem dependa deles.
 
-## Environment variables
+## Variáveis de ambiente
 
-| Variable | Purpose |
+| Variável | Finalidade |
 |---|---|
-| `DATABASE_URL` | PostgreSQL URL (Railway). Absent = SQLite. |
-| `ADMIN_EMAIL` | Seeds an admin user on first boot |
-| `ADMIN_PASSWORD` | Seeds an admin user on first boot |
-| `EMAIL_FROM` | Gmail address for notification emails |
-| `EMAIL_PASSWORD` | Gmail app password |
-| `EMAIL_TO` | Comma-separated extra notification recipients |
-| `ZAPI_INSTANCE_ID` | Z-API WhatsApp instance |
-| `ZAPI_INSTANCE_TOKEN` | Z-API token |
-| `ZAPI_CLIENT_TOKEN` | Z-API client token |
-| `WHATSAPP_PHONES` | Comma-separated phone numbers for WhatsApp alerts |
+| `DATABASE_URL` | URL do PostgreSQL (Railway). Ausente = SQLite. |
+| `ADMIN_EMAIL` | Cria um usuário admin na primeira inicialização |
+| `ADMIN_PASSWORD` | Cria um usuário admin na primeira inicialização |
+| `EMAIL_FROM` | Endereço Gmail para e-mails de notificação |
+| `EMAIL_PASSWORD` | Senha de app do Gmail |
+| `EMAIL_TO` | Destinatários extras de notificação (separados por vírgula) |
+| `ZAPI_INSTANCE_ID` | Instância Z-API do WhatsApp |
+| `ZAPI_INSTANCE_TOKEN` | Token Z-API |
+| `ZAPI_CLIENT_TOKEN` | Token de cliente Z-API |
+| `WHATSAPP_PHONES` | Números de telefone para alertas WhatsApp (separados por vírgula) |
